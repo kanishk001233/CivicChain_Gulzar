@@ -8,11 +8,11 @@ import { PerformancePage } from './components/PerformancePage';
 import { ReportsPage } from './components/ReportsPage';
 import { HelpPage } from './components/HelpPage';
 import { AIInsightsPage } from './components/AIInsightsPage';
-import { MunicipalCommunicationChat } from './components/MunicipalCommunicationChat';
-import { StateOverviewPageEnhanced } from '@/components/StateOverviewPageEnhanced';
-import { StateCommunicationChat } from '@/components/StateCommunicationChat';
+// import { MunicipalCommunicationChat } from './components/MunicipalCommunicationChat';
+// import { StateOverviewPageEnhanced } from '@/components/StateOverviewPageEnhanced';
+// import { StateCommunicationChat } from '@/components/StateCommunicationChat';
 import { Toaster } from './components/ui/sonner';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 import * as api from './utils/api';
 
 interface Complaint {
@@ -336,10 +336,10 @@ export default function App() {
             </div>
           </header>
 
-          <StateOverviewPageEnhanced stateId={stateId} stateName={stateName} />
+          {/* <StateOverviewPageEnhanced stateId={stateId} stateName={stateName} /> */}
         </div>
 
-        <StateCommunicationChat stateId={stateId} stateName={stateName} />
+        {/* <StateCommunicationChat stateId={stateId} stateName={stateName} /> */}
 
         <Toaster position="top-right" />
       </>
@@ -358,7 +358,7 @@ export default function App() {
       </DashboardLayout>
       
       {/* Municipal Communication Chat */}
-      {municipalId && stateId && (
+      {/* {municipalId && stateId && (
         <MunicipalCommunicationChat
           stateId={stateId}
           stateName={stateName}
@@ -366,7 +366,7 @@ export default function App() {
           municipalName={municipalName}
           onViewComplaint={handleViewComplaint}
         />
-      )}
+      )} */}
       
       {/* Link Complaint Dialog - rendered at App level */}
       {linkingComplaint && (
