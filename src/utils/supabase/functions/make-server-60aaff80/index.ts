@@ -627,10 +627,10 @@ app.get('/make-server-60aaff80/stats/:municipalId/performance', async (c) => {
 app.post('/make-server-60aaff80/ai/dashboard-chat', async (c) => {
   try {
     const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
-    const configuredGeminiModel = Deno.env.get('GEMINI_MODEL') || 'gemini-2.0-flash-lite';
+    const geminiModel = Deno.env.get('GEMINI_MODEL') || 'gemini-1.5-flash';
 
     if (!geminiApiKey) {
-      return c.json({ error: 'Server AI key missing. Set GEMINI_API_KEY.' }, 500);
+      return c.json({ error: 'Server AI key missing (GEMINI_API_KEY).' }, 500);
     }
 
     const {
@@ -690,7 +690,7 @@ app.post('/make-server-60aaff80/ai/dashboard-chat', async (c) => {
         .select('*')
         .eq('municipal_id', municipalId)
         .order('submitted_date', { ascending: false })
-        .limit(120);
+        .limit(500);
 
       if (complaintsError) {
         return c.json({ error: `Failed to fetch municipal complaints: ${complaintsError.message}` }, 500);
@@ -708,15 +708,7 @@ app.post('/make-server-60aaff80/ai/dashboard-chat', async (c) => {
         monthlyMap[month] = (monthlyMap[month] || 0) + 1;
       });
 
-      context.complaints = (complaints || []).map((item: any) => ({
-        id: item.id,
-        category_id: item.category_id,
-        status: item.status,
-        submitted_date: item.submitted_date,
-        resolved_date: item.resolved_date,
-        verification_count: item.verification_count || 0,
-        location: item.location || '',
-      }));
+      context.complaints = complaints || [];
       context.complaintStats = { total, pending, verified, resolved };
       context.monthlyComplaintVolume = monthlyMap;
     } else {
@@ -736,7 +728,7 @@ app.post('/make-server-60aaff80/ai/dashboard-chat', async (c) => {
         .select('*')
         .in('municipal_id', municipalIds)
         .order('submitted_date', { ascending: false })
-        .limit(400);
+        .limit(2000);
 
       if (complaintsError) {
         return c.json({ error: `Failed to fetch state complaints: ${complaintsError.message}` }, 500);
@@ -750,19 +742,8 @@ app.post('/make-server-60aaff80/ai/dashboard-chat', async (c) => {
       });
 
       context.municipals = municipals || [];
-      context.complaints = (complaints || []).map((item: any) => ({
-        id: item.id,
-        municipal_id: item.municipal_id,
-        category_id: item.category_id,
-        status: item.status,
-        submitted_date: item.submitted_date,
-      }));
-      context.escalatedComplaints = escalatedComplaints.slice(0, 120).map((item: any) => ({
-        id: item.id,
-        municipal_id: item.municipal_id,
-        category_id: item.category_id,
-        submitted_date: item.submitted_date,
-      }));
+      context.complaints = complaints || [];
+      context.escalatedComplaints = escalatedComplaints;
     }
 
     const compactHistory = (chatHistory || [])
@@ -786,49 +767,28 @@ User question:
 ${String(question).slice(0, 4000)}
 `;
 
-    const candidateModels = [
-      configuredGeminiModel,
-      'gemini-2.0-flash-lite',
-      'gemini-2.0-flash',
-      'gemini-1.5-flash-latest',
-    ].filter((model, index, arr) => model && arr.indexOf(model) === index);
+    const geminiResponse = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${geminiApiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.3,
+            topP: 0.8,
+            maxOutputTokens: 1024,
+          },
+        }),
+      },
+    );
 
-    let geminiData: any = null;
-    let geminiErrorText = '';
-    let geminiStatus = 500;
-
-    for (const modelName of candidateModels) {
-      const geminiResponse = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${geminiApiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ role: 'user', parts: [{ text: prompt }] }],
-            generationConfig: {
-              temperature: 0.3,
-              topP: 0.8,
-              maxOutputTokens: 650,
-            },
-          }),
-        },
-      );
-
-      if (geminiResponse.ok) {
-        geminiData = await geminiResponse.json();
-        break;
-      }
-
-      geminiStatus = geminiResponse.status;
-      geminiErrorText = await geminiResponse.text();
-      if (geminiResponse.status === 404) continue;
-      return c.json({ error: `Gemini API error: ${geminiResponse.status} - ${geminiErrorText}` }, 502);
+    if (!geminiResponse.ok) {
+      const err = await geminiResponse.text();
+      return c.json({ error: `Gemini API error: ${geminiResponse.status} - ${err}` }, 502);
     }
 
-    if (!geminiData) {
-      return c.json({ error: `Gemini API error: ${geminiStatus} - ${geminiErrorText}` }, 502);
-    }
-
+    const geminiData = await geminiResponse.json();
     const answer = geminiData?.candidates?.[0]?.content?.parts
       ?.map((part: any) => part?.text || '')
       .join('\n')

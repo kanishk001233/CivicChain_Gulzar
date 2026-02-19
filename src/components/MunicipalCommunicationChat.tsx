@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import * as api from '../utils/api';
 import { toast } from 'sonner';
+import { AIDashboardChat } from './AIDashboardChat';
 
 interface MunicipalCommunicationChatProps {
   stateId: string;
@@ -37,6 +38,7 @@ export function MunicipalCommunicationChat({
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [activeTab, setActiveTab] = useState<'official' | 'ai'>('official');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messageInputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -180,8 +182,10 @@ export function MunicipalCommunicationChat({
           <div className="flex items-center gap-3">
             <Building2 className="w-5 h-5 text-white" />
             <div>
-              <h3 className="text-white">{stateName} State Government</h3>
-              {unreadCount > 0 && (
+              <h3 className="text-white">
+                {activeTab === 'official' ? `${stateName} State Government` : 'CivicChain AI Assistant'}
+              </h3>
+              {activeTab === 'official' && unreadCount > 0 && (
                 <p className="text-xs text-white text-opacity-90">{unreadCount} unread messages</p>
               )}
             </div>
@@ -202,122 +206,159 @@ export function MunicipalCommunicationChat({
           </div>
         </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-hidden flex flex-col bg-gray-50">
-          {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            {loading && messages.length === 0 ? (
-              <div className="flex items-center justify-center h-full">
-                <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-              </div>
-            ) : messages.length > 0 ? (
-              <>
-                {messages.map((message) => {
-                  const isFromMunicipal = message.senderType === 'municipal';
-                  return (
-                    <div
-                      key={message.id}
-                      className={`flex ${isFromMunicipal ? 'justify-end' : 'justify-start'}`}
-                    >
-                      <div
-                        className={`max-w-[75%] rounded-2xl px-4 py-2 ${
-                          isFromMunicipal
-                            ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white'
-                            : 'bg-white border border-gray-200'
-                        }`}
-                      >
-                        {!isFromMunicipal && (
-                          <p className="text-xs text-gray-500 mb-1">{message.senderName}</p>
-                        )}
-                        <p
-                          className={`text-sm whitespace-pre-wrap ${
-                            isFromMunicipal ? 'text-white' : 'text-gray-900'
-                          }`}
-                        >
-                          {message.messageText}
-                        </p>
-                        {message.complaintId && (
-                          <button
-                            onClick={() => {
-                              if (onViewComplaint) {
-                                onViewComplaint(message.complaintId!);
-                                setIsOpen(false);
-                              } else {
-                                toast.info('Complaint Reference', {
-                                  description: `This message refers to Complaint #${message.complaintId}. Check the Departments tab to view and resolve it.`,
-                                });
-                              }
-                            }}
-                            className={`mt-2 flex items-center gap-1 text-xs px-2 py-1 rounded ${
-                              isFromMunicipal
-                                ? 'bg-white bg-opacity-20 hover:bg-opacity-30 text-white'
-                                : 'bg-blue-50 hover:bg-blue-100 text-blue-700'
-                            }`}
-                          >
-                            <Eye className="w-3 h-3" />
-                            View Complaint #{message.complaintId}
-                          </button>
-                        )}
-                        <div
-                          className={`flex items-center gap-1 mt-1 text-xs ${
-                            isFromMunicipal ? 'text-white text-opacity-80' : 'text-gray-500'
-                          }`}
-                        >
-                          <span>{formatTime(message.sentAt)}</span>
-                          {isFromMunicipal && (
-                            <>
-                              {message.isRead ? (
-                                <CheckCheck className="w-3 h-3" />
-                              ) : (
-                                <Check className="w-3 h-3" />
-                              )}
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-                <div ref={messagesEndRef} />
-              </>
-            ) : (
-              <div className="flex flex-col items-center justify-center h-full text-center">
-                <MessageCircle className="w-12 h-12 text-gray-400 mb-4" />
-                <p className="text-gray-600 mb-2">No messages yet</p>
-                <p className="text-xs text-gray-500">
-                  Start a conversation with {stateName} State Government
-                </p>
-              </div>
-            )}
-          </div>
-
-          {/* Message Input */}
-          <div className="border-t border-gray-200 p-4 bg-white">
-            <div className="flex items-end gap-2">
-              <textarea
-                ref={messageInputRef}
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder="Type a message..."
-                className="flex-1 resize-none border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent max-h-32"
-                rows={2}
-                disabled={sending}
-              />
-              <Button
-                onClick={handleSendMessage}
-                disabled={!newMessage.trim() || sending}
-                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-4 py-2 rounded-lg"
-              >
-                {sending ? (
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                ) : (
-                  <Send className="w-5 h-5" />
-                )}
-              </Button>
-            </div>
+        <div className="border-b border-gray-200 bg-white p-2">
+          <div className="grid grid-cols-2 gap-2 rounded-lg bg-slate-100 p-1">
+            <button
+              type="button"
+              onClick={() => setActiveTab('official')}
+              className={`rounded-md px-3 py-2 text-sm transition ${
+                activeTab === 'official'
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Chat with State
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('ai')}
+              className={`rounded-md px-3 py-2 text-sm transition ${
+                activeTab === 'ai'
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Chat with AI
+            </button>
           </div>
         </div>
+
+        {/* Content */}
+        {activeTab === 'official' ? (
+          <div className="flex-1 overflow-hidden flex flex-col bg-gray-50">
+            {/* Messages */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {loading && messages.length === 0 ? (
+                <div className="flex items-center justify-center h-full">
+                  <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+                </div>
+              ) : messages.length > 0 ? (
+                <>
+                  {messages.map((message) => {
+                    const isFromMunicipal = message.senderType === 'municipal';
+                    return (
+                      <div
+                        key={message.id}
+                        className={`flex ${isFromMunicipal ? 'justify-end' : 'justify-start'}`}
+                      >
+                        <div
+                          className={`max-w-[75%] rounded-2xl px-4 py-2 ${
+                            isFromMunicipal
+                              ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white'
+                              : 'bg-white border border-gray-200'
+                          }`}
+                        >
+                          {!isFromMunicipal && (
+                            <p className="text-xs text-gray-500 mb-1">{message.senderName}</p>
+                          )}
+                          <p
+                            className={`text-sm whitespace-pre-wrap ${
+                              isFromMunicipal ? 'text-white' : 'text-gray-900'
+                            }`}
+                          >
+                            {message.messageText}
+                          </p>
+                          {message.complaintId && (
+                            <button
+                              onClick={() => {
+                                if (onViewComplaint) {
+                                  onViewComplaint(message.complaintId!);
+                                  setIsOpen(false);
+                                } else {
+                                  toast.info('Complaint Reference', {
+                                    description: `This message refers to Complaint #${message.complaintId}. Check the Departments tab to view and resolve it.`,
+                                  });
+                                }
+                              }}
+                              className={`mt-2 flex items-center gap-1 text-xs px-2 py-1 rounded ${
+                                isFromMunicipal
+                                  ? 'bg-white bg-opacity-20 hover:bg-opacity-30 text-white'
+                                  : 'bg-blue-50 hover:bg-blue-100 text-blue-700'
+                              }`}
+                            >
+                              <Eye className="w-3 h-3" />
+                              View Complaint #{message.complaintId}
+                            </button>
+                          )}
+                          <div
+                            className={`flex items-center gap-1 mt-1 text-xs ${
+                              isFromMunicipal ? 'text-white text-opacity-80' : 'text-gray-500'
+                            }`}
+                          >
+                            <span>{formatTime(message.sentAt)}</span>
+                            {isFromMunicipal && (
+                              <>
+                                {message.isRead ? (
+                                  <CheckCheck className="w-3 h-3" />
+                                ) : (
+                                  <Check className="w-3 h-3" />
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <div ref={messagesEndRef} />
+                </>
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full text-center">
+                  <MessageCircle className="w-12 h-12 text-gray-400 mb-4" />
+                  <p className="text-gray-600 mb-2">No messages yet</p>
+                  <p className="text-xs text-gray-500">
+                    Start a conversation with {stateName} State Government
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Message Input */}
+            <div className="border-t border-gray-200 p-4 bg-white">
+              <div className="flex items-end gap-2">
+                <textarea
+                  ref={messageInputRef}
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  placeholder="Type a message..."
+                  className="flex-1 resize-none border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent max-h-32"
+                  rows={2}
+                  disabled={sending}
+                />
+                <Button
+                  onClick={handleSendMessage}
+                  disabled={!newMessage.trim() || sending}
+                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-4 py-2 rounded-lg"
+                >
+                  {sending ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <Send className="w-5 h-5" />
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <AIDashboardChat
+            scope="municipal"
+            stateId={stateId}
+            stateName={stateName}
+            municipalId={municipalId}
+            municipalName={municipalName}
+          />
+        )}
       </Card>
     </div>
   );

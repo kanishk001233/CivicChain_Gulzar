@@ -8,7 +8,6 @@ import {
   Send,
   Users,
   Loader2,
-  AlertCircle,
   Check,
   CheckCheck,
   ChevronLeft,
@@ -16,6 +15,7 @@ import {
 } from 'lucide-react';
 import * as api from '../utils/api';
 import { toast } from 'sonner';
+import { AIDashboardChat } from './AIDashboardChat';
 
 interface StateCommunicationChatProps {
   stateId: string;
@@ -33,6 +33,7 @@ export function StateCommunicationChat({ stateId, stateName }: StateCommunicatio
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [totalUnread, setTotalUnread] = useState(0);
+  const [activeTab, setActiveTab] = useState<'official' | 'ai'>('official');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messageInputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -206,7 +207,7 @@ export function StateCommunicationChat({ stateId, stateName }: StateCommunicatio
         {/* Header */}
         <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            {view === 'chat' && (
+            {activeTab === 'official' && view === 'chat' && (
               <button
                 onClick={backToList}
                 className="text-white hover:bg-white hover:bg-opacity-20 p-1 rounded transition"
@@ -217,9 +218,13 @@ export function StateCommunicationChat({ stateId, stateName }: StateCommunicatio
             <MessageCircle className="w-5 h-5 text-white" />
             <div>
               <h3 className="text-white">
-                {view === 'list' ? 'Municipal Communications' : selectedThread?.municipalName}
+                {activeTab === 'official'
+                  ? view === 'list'
+                    ? 'Municipal Communications'
+                    : selectedThread?.municipalName
+                  : 'CivicChain AI Assistant'}
               </h3>
-              {view === 'list' && totalUnread > 0 && (
+              {activeTab === 'official' && view === 'list' && totalUnread > 0 && (
                 <p className="text-xs text-white text-opacity-90">{totalUnread} unread messages</p>
               )}
             </div>
@@ -240,9 +245,37 @@ export function StateCommunicationChat({ stateId, stateName }: StateCommunicatio
           </div>
         </div>
 
+        <div className="border-b border-gray-200 bg-white p-2">
+          <div className="grid grid-cols-2 gap-2 rounded-lg bg-slate-100 p-1">
+            <button
+              type="button"
+              onClick={() => setActiveTab('official')}
+              className={`rounded-md px-3 py-2 text-sm transition ${
+                activeTab === 'official'
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Chat with Municipal
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('ai')}
+              className={`rounded-md px-3 py-2 text-sm transition ${
+                activeTab === 'ai'
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Chat with AI
+            </button>
+          </div>
+        </div>
+
         {/* Content */}
-        <div className="flex-1 overflow-hidden flex flex-col bg-gray-50">
-          {view === 'list' ? (
+        {activeTab === 'official' ? (
+          <div className="flex-1 overflow-hidden flex flex-col bg-gray-50">
+            {view === 'list' ? (
             // Threads List
             <div className="flex-1 overflow-y-auto">
               {loading ? (
@@ -289,7 +322,7 @@ export function StateCommunicationChat({ stateId, stateName }: StateCommunicatio
                 </div>
               )}
             </div>
-          ) : (
+            ) : (
             // Chat View
             <>
               <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -401,8 +434,11 @@ export function StateCommunicationChat({ stateId, stateName }: StateCommunicatio
                 </div>
               </div>
             </>
-          )}
-        </div>
+            )}
+          </div>
+        ) : (
+          <AIDashboardChat scope="state" stateId={stateId} stateName={stateName} />
+        )}
       </Card>
     </div>
   );

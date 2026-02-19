@@ -1252,3 +1252,270 @@ export async function getTotalUnreadCount(stateId: string): Promise<number> {
 
   return count || 0;
 }
+
+export type AIChatScope = 'municipal' | 'state';
+
+interface AskGeminiDashboardAssistantParams {
+  scope: AIChatScope;
+  question: string;
+  stateId: string;
+  stateName: string;
+  municipalId?: string;
+  municipalName?: string;
+  chatHistory?: Array<{ role: 'user' | 'assistant'; text: string }>;
+}
+
+function compactHistory(history: Array<{ role: 'user' | 'assistant'; text: string }>) {
+  return history
+    .slice(-8)
+    .map((item) => `${item.role === 'assistant' ? 'Assistant' : 'User'}: ${item.text}`)
+    .join('\n');
+}
+
+function monthlySummaryFromComplaints(complaints: Complaint[]) {
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const monthMap: Record<string, number> = {};
+  complaints.forEach((c) => {
+    const month = monthNames[new Date(c.submittedDate).getMonth()];
+    monthMap[month] = (monthMap[month] || 0) + 1;
+  });
+  return monthMap;
+}
+
+// Simple in-memory cache for Gemini responses
+const geminiCache = new Map<string, { answer: string; timestamp: number }>();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+let geminiRequestCount = 0;
+let geminiResetTime = Date.now() + 60000; // Reset counter every minute
+
+function getCacheKey(scope: string, question: string, municipalId?: string): string {
+  return `${scope}:${question}:${municipalId || 'state'}`;
+}
+
+function checkAndUpdateRateLimit(): void {
+  const now = Date.now();
+  if (now > geminiResetTime) {
+    geminiRequestCount = 0;
+    geminiResetTime = now + 60000;
+  }
+  geminiRequestCount++;
+}
+
+async function callGeminiWithRetry(
+  modelCandidates: string[],
+  apiKey: string,
+  prompt: string,
+  maxRetries: number = 2
+): Promise<string> {
+  let lastError: Error | null = null;
+
+  for (const model of modelCandidates) {
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        checkAndUpdateRateLimit();
+
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/${model}:generateContent`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-goog-api-key': apiKey,
+          },
+          body: JSON.stringify({
+            contents: [
+              {
+                parts: [{ text: prompt }],
+              },
+            ],
+            generationConfig: {
+              temperature: 0.3,
+              maxOutputTokens: 900,
+            },
+          }),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          const statusCode = response.status;
+
+          // Model not supported for this API version/key. Try next model.
+          if (statusCode === 404) {
+            break;
+          }
+
+          // Handle rate limit (429) with exponential backoff
+          if (statusCode === 429) {
+            const waitMs = Math.pow(2, attempt) * 2000; // 2s, 4s, 8s
+            if (attempt < maxRetries) {
+              console.warn(`Rate limited for ${model}. Retrying in ${waitMs}ms...`);
+              await new Promise((resolve) => setTimeout(resolve, waitMs));
+              continue;
+            } else {
+              throw new Error(
+                'API Quota exceeded (free tier limit reached). Please upgrade your Google Cloud billing plan at https://console.cloud.google.com/ or try again in a few minutes.'
+              );
+            }
+          }
+
+          throw new Error(`Gemini API error: ${statusCode} - ${errorText}`);
+        }
+
+        const data = await response.json();
+        const answer = data?.candidates?.[0]?.content?.parts
+          ?.map((part: { text?: string }) => part?.text || '')
+          .join('\n')
+          .trim();
+
+        if (!answer) {
+          throw new Error('Gemini returned an empty response.');
+        }
+
+        return answer;
+      } catch (error) {
+        lastError = error as Error;
+        if (
+          error instanceof Error &&
+          (error.message.includes('quota') || error.message.includes('429') || error.message.includes('rate limit'))
+        ) {
+          // Don't retry across other models for quota errors.
+          throw error;
+        }
+        if (attempt === maxRetries) {
+          break;
+        }
+      }
+    }
+  }
+
+  throw lastError || new Error('Failed to get Gemini response');
+}
+
+export async function askGeminiDashboardAssistant({
+  scope,
+  question,
+  stateId,
+  stateName,
+  municipalId,
+  municipalName,
+  chatHistory = [],
+}: AskGeminiDashboardAssistantParams): Promise<string> {
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+  const model = import.meta.env.VITE_GEMINI_MODEL || 'gemini-2.5-flash';
+
+  if (!apiKey) {
+    throw new Error('Set VITE_GEMINI_API_KEY in frontend .env file.');
+  }
+
+  if (scope === 'municipal' && (!municipalId || !municipalName)) {
+    throw new Error('Municipal context requires municipalId and municipalName.');
+  }
+
+  // Check cache first
+  const cacheKey = getCacheKey(scope, question, municipalId);
+  const cached = geminiCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    console.log('Returning cached Gemini response');
+    return cached.answer;
+  }
+
+  const { createClient } = await import('./supabase/client');
+  const supabase = createClient();
+
+  let context: any = {
+    scope,
+    stateId,
+    stateName,
+    municipalId,
+    municipalName,
+    generatedAt: new Date().toISOString(),
+  };
+
+  if (scope === 'municipal') {
+    const [categoriesResult, complaints, performanceResult] = await Promise.all([
+      supabase.from('categories').select('id, name, department_id').order('name'),
+      getComplaintsByMunicipal(municipalId!),
+      getDepartmentPerformance(municipalId!).catch(() => [] as DepartmentPerformance[]),
+    ]);
+
+    if (categoriesResult.error) {
+      throw new Error(`Failed to fetch categories: ${categoriesResult.error.message}`);
+    }
+
+    const complaintStats = {
+      total: complaints.length,
+      pending: complaints.filter((c) => c.status === 'pending').length,
+      verified: complaints.filter((c) => c.status === 'verified').length,
+      resolved: complaints.filter((c) => c.status === 'resolved').length,
+    };
+
+    context = {
+      ...context,
+      categories: categoriesResult.data || [],
+      complaintStats,
+      monthlyComplaintVolume: monthlySummaryFromComplaints(complaints),
+      departmentPerformance: performanceResult,
+      complaints: complaints.slice(0, 300).map((c) => ({
+        id: c.id,
+        category: c.category,
+        title: c.title,
+        status: c.status,
+        submittedDate: c.submittedDate,
+        resolvedDate: c.resolvedDate,
+        verificationCount: c.verificationCount || 0,
+      })),
+    };
+  } else {
+    const [stateStats, municipalStats, deptPerformance, escalatedComplaints, historicalTrends, forecast] =
+      await Promise.all([
+        getStateStats(stateId),
+        getMunicipalStatsForState(stateId),
+        getStateDepartmentPerformance(stateId),
+        getEscalatedComplaints(stateId),
+        getStateHistoricalTrends(stateId),
+        getStateForecast(stateId),
+      ]);
+
+    context = {
+      ...context,
+      stateStats,
+      municipalStats,
+      departmentPerformance: deptPerformance,
+      escalatedComplaints,
+      historicalTrends,
+      forecast,
+    };
+  }
+
+  const prompt = `
+You are CivicChain dashboard AI assistant.
+Use ONLY the provided JSON context from this live dashboard.
+If required data is not present in context, state that clearly.
+Keep answers concise, factual, and actionable.
+
+Context JSON:
+${JSON.stringify(context)}
+
+Recent chat:
+${compactHistory(chatHistory) || 'No previous messages.'}
+
+User question:
+${question}
+`;
+
+  const normalizedModel = model.replace(/^models\//, '').trim();
+  const modelCandidates = [
+    normalizedModel,
+    'gemini-2.5-flash',
+    'gemini-2.0-flash',
+    'gemini-2.0-flash-lite',
+  ].filter((m, i, arr) => !!m && arr.indexOf(m) === i);
+
+  const answer = await callGeminiWithRetry(modelCandidates, apiKey, prompt);
+
+  // Cache the response
+  geminiCache.set(cacheKey, {
+    answer,
+    timestamp: Date.now(),
+  });
+
+  return answer;
+}
