@@ -1,47 +1,6 @@
-// import { projectId, publicAnonKey } from './supabase/info';
-// TODO: Configure supabase/info with your project credentials
-
-// Placeholder values - replace with actual Supabase project info
-const projectId = process.env.REACT_APP_SUPABASE_PROJECT_ID || 'your-project-id';
-const publicAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY || 'your-anon-key';
+import { projectId, publicAnonKey } from './supabase/info';
 
 const SERVER_URL = `https://${projectId}.supabase.co/functions/v1/make-server-60aaff80`;
-
-// Fallback supabase client - returns mock data when real client is not available
-async function getSupabaseClient() {
-  try {
-    const { createClient } = await import('./supabase/client');
-    return createClient();
-  } catch (error) {
-    console.warn('Supabase client not available, using fallback mock client');
-    return {
-      from: () => ({
-        select: () => ({
-          eq: () => ({
-            order: async () => ({ data: [], error: null }),
-            async: () => ({ data: [], error: null }),
-          }),
-          eq: () => ({
-            order: async () => ({ data: [], error: null }),
-            async: () => ({ data: [], error: null }),
-          }),
-          update: async () => ({ data: {}, error: null }),
-          insert: async () => ({ data: {}, error: null }),
-          delete: async () => ({ data: {}, error: null }),
-        }),
-        update: async () => ({ data: {}, error: null }),
-        insert: async () => ({ data: {}, error: null }),
-        delete: async () => ({ data: {}, error: null }),
-      }),
-      storage: {
-        from: () => ({
-          upload: async () => ({ data: null, error: null }),
-          getPublicUrl: () => ({ data: { publicUrl: '' } }),
-        }),
-      },
-    };
-  }
-}
 
 export interface Complaint {
   id: number;
@@ -129,45 +88,41 @@ export async function getCategories(): Promise<Category[]> {
 
 // Complaints API - use direct Supabase query to get all fields including created_by
 export async function getComplaintsByMunicipal(municipalId: string): Promise<Complaint[]> {
-  try {
-    const supabase = await getSupabaseClient();
+  const { createClient } = await import('./supabase/client');
+  const supabase = createClient();
 
-    const { data, error } = await supabase
-      .from('complaints')
-      .select('*')
-      .eq('municipal_id', municipalId)
-      .order('submitted_date', { ascending: false });
+  const { data, error } = await supabase
+    .from('complaints')
+    .select('*')
+    .eq('municipal_id', municipalId)
+    .order('submitted_date', { ascending: false });
 
-    if (error) {
-      throw new Error(`Failed to fetch complaints: ${error.message}`);
-    }
-
-    // Map to Complaint interface
-    return (data || []).map((c: any) => ({
-      id: c.id,
-      category: c.category_id,
-      title: c.title,
-      description: c.description,
-      location: c.location || c.locationAB || c.location_address || '',
-      latitude: c.latitude,
-      longitude: c.longitude,
-      votes: c.votes ?? 0,
-      submittedDate: c.submitted_date,
-      status: c.status,
-      photo: c.photo_url || '',
-      resolutionImage: c.resolution_image,
-      resolutionImages: c.resolution_images,
-      resolvedDate: c.resolved_date,
-      verificationCount: c.verification_count,
-      daysPending: c.days_pending,
-      resolvedByOfficer: c.resolved_by_officer || c.resolved_by,
-      createdBy: c.created_by,
-      parentComplaintId: c.parent_complaint_id,
-    }));
-  } catch (error) {
-    console.error('Error fetching complaints:', error);
-    return [];
+  if (error) {
+    throw new Error(`Failed to fetch complaints: ${error.message}`);
   }
+
+  // Map to Complaint interface
+  return (data || []).map((c: any) => ({
+    id: c.id,
+    category: c.category_id,
+    title: c.title,
+    description: c.description,
+    location: c.location || c.locationAB || c.location_address || '',
+    latitude: c.latitude,
+    longitude: c.longitude,
+    votes: c.votes ?? 0,
+    submittedDate: c.submitted_date,
+    status: c.status,
+    photo: c.photo_url || '',
+    resolutionImage: c.resolution_image,
+    resolutionImages: c.resolution_images,
+    resolvedDate: c.resolved_date,
+    verificationCount: c.verification_count,
+    daysPending: c.days_pending,
+    resolvedByOfficer: c.resolved_by_officer || c.resolved_by,
+    createdBy: c.created_by,
+    parentComplaintId: c.parent_complaint_id,
+  }));
 }
 
 export async function resolveComplaint(complaintId: number, imageUrl: string, officerName?: string) {
@@ -179,7 +134,8 @@ export async function resolveComplaint(complaintId: number, imageUrl: string, of
 
 export async function resolveComplaintByState(complaintId: number, notes?: string) {
   // For state-level resolution without image requirement
-  const supabase = await getSupabaseClient();
+  const { createClient } = await import('./supabase/client');
+  const supabase = createClient();
 
   const { data, error } = await supabase
     .from('complaints')
@@ -223,7 +179,8 @@ export async function createLinkedComplaint(
   referringDepartmentName: string,
   municipalId: string
 ) {
-  const supabase = await getSupabaseClient();
+  const { createClient } = await import('./supabase/client');
+  const supabase = createClient();
 
   // Get parent complaint details
   const { data: parentComplaint, error: parentError } = await supabase
@@ -268,7 +225,8 @@ export async function createLinkedComplaint(
 }
 
 export async function getLinkedComplaints(complaintId: number) {
-  const supabase = await getSupabaseClient();
+  const { createClient } = await import('./supabase/client');
+  const supabase = createClient();
 
   const { data: linkedComplaints, error } = await supabase
     .from('complaints')
@@ -284,7 +242,8 @@ export async function getLinkedComplaints(complaintId: number) {
 }
 
 export async function getComplaintWithLinks(complaintId: number) {
-  const supabase = await getSupabaseClient();
+  const { createClient } = await import('./supabase/client');
+  const supabase = createClient();
 
   // Get the complaint itself
   const { data: complaint, error: complaintError } = await supabase
@@ -379,7 +338,8 @@ export interface AnalyticsData {
 export async function getAnalyticsData(municipalId: string): Promise<AnalyticsData> {
   // Fetch directly from Supabase instead of using edge function
   // This avoids deployment issues
-  const supabase = await getSupabaseClient();
+  const { createClient } = await import('./supabase/client');
+  const supabase = createClient();
   
   // Get all complaints with verification count
   const { data: complaints, error } = await supabase
@@ -470,7 +430,8 @@ export interface MunicipalStats {
 }
 
 export async function getStateStats(stateId: string): Promise<StateStats> {
-  const supabase = await getSupabaseClient();
+  const { createClient } = await import('./supabase/client');
+  const supabase = createClient();
   
   // Get all municipals in the state
   const { data: municipals, error: municipalsError } = await supabase
@@ -521,7 +482,8 @@ export async function getStateStats(stateId: string): Promise<StateStats> {
 }
 
 export async function getMunicipalStatsForState(stateId: string): Promise<MunicipalStats[]> {
-  const supabase = await getSupabaseClient();
+  const { createClient } = await import('./supabase/client');
+  const supabase = createClient();
   
   // Get all municipals in the state
   const { data: municipals, error: municipalsError } = await supabase
@@ -580,7 +542,8 @@ export async function getMunicipalStatsForState(stateId: string): Promise<Munici
 }
 
 export async function getStateComplaints(stateId: string): Promise<Complaint[]> {
-  const supabase = await getSupabaseClient();
+  const { createClient } = await import('./supabase/client');
+  const supabase = createClient();
   
   // Get all municipals in the state
   const { data: municipals, error: municipalsError } = await supabase
@@ -655,7 +618,8 @@ export interface StateDepartmentPerformance {
 }
 
 export async function getStateDepartmentPerformance(stateId: string): Promise<StateDepartmentPerformance[]> {
-  const supabase = await getSupabaseClient();
+  const { createClient } = await import('./supabase/client');
+  const supabase = createClient();
   
   // Get all municipals in the state
   const { data: municipals, error: municipalsError } = await supabase
@@ -754,7 +718,8 @@ export async function getStateDepartmentPerformance(stateId: string): Promise<St
 }
 
 export async function getEscalatedComplaints(stateId: string): Promise<EscalatedComplaint[]> {
-  const supabase = await getSupabaseClient();
+  const { createClient } = await import('./supabase/client');
+  const supabase = createClient();
   
   // Get all municipals in the state
   const { data: municipals, error: municipalsError } = await supabase
@@ -826,7 +791,8 @@ export interface YearlyTrend {
 }
 
 export async function getStateHistoricalTrends(stateId: string): Promise<YearlyTrend[]> {
-  const supabase = await getSupabaseClient();
+  const { createClient } = await import('./supabase/client');
+  const supabase = createClient();
   
   // Get all municipals in the state
   const { data: municipals, error: municipalsError } = await supabase
@@ -896,7 +862,8 @@ export interface CategoryForecast {
 }
 
 export async function getStateForecast(stateId: string): Promise<CategoryForecast[]> {
-  const supabase = await getSupabaseClient();
+  const { createClient } = await import('./supabase/client');
+  const supabase = createClient();
   
   // Get all municipals in the state
   const { data: municipals, error: municipalsError } = await supabase
@@ -1020,7 +987,8 @@ export interface ConversationThread {
 }
 
 export async function getConversationThreads(stateId: string): Promise<ConversationThread[]> {
-  const supabase = await getSupabaseClient();
+  const { createClient } = await import('./supabase/client');
+  const supabase = createClient();
 
   const { data: threads, error } = await supabase
     .from('conversation_threads')
@@ -1069,7 +1037,8 @@ export async function getMessages(
   municipalId: string,
   limit: number = 50
 ): Promise<StateMessage[]> {
-  const supabase = await getSupabaseClient();
+  const { createClient } = await import('./supabase/client');
+  const supabase = createClient();
 
   const { data: messages, error } = await supabase
     .from('state_municipal_messages')
@@ -1116,7 +1085,8 @@ export async function sendMessage(
   messageType: 'text' | 'alert' | 'directive' | 'query' = 'text',
   complaintId?: number
 ): Promise<StateMessage> {
-  const supabase = await getSupabaseClient();
+  const { createClient } = await import('./supabase/client');
+  const supabase = createClient();
 
   // Try to insert message with complaint_id
   let message;
@@ -1211,7 +1181,8 @@ export async function markMessagesAsRead(
   municipalId: string,
   senderType: 'state' | 'municipal'
 ): Promise<void> {
-  const supabase = await getSupabaseClient();
+  const { createClient } = await import('./supabase/client');
+  const supabase = createClient();
 
   // Mark all messages from the opposite sender as read
   const oppositeSender = senderType === 'state' ? 'municipal' : 'state';
@@ -1238,7 +1209,8 @@ export async function getUnreadCount(
   municipalId: string,
   senderType: 'state' | 'municipal'
 ): Promise<number> {
-  const supabase = await getSupabaseClient();
+  const { createClient } = await import('./supabase/client');
+  const supabase = createClient();
 
   // Count unread messages from the opposite sender
   const oppositeSender = senderType === 'state' ? 'municipal' : 'state';
@@ -1260,7 +1232,8 @@ export async function getUnreadCount(
 }
 
 export async function getTotalUnreadCount(stateId: string): Promise<number> {
-  const supabase = await getSupabaseClient();
+  const { createClient } = await import('./supabase/client');
+  const supabase = createClient();
 
   // Count all unread messages from municipals to state
   const { count, error } = await supabase
