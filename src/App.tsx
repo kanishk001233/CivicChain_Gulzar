@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { LoginPage } from './components/LoginPage';
 import { DashboardLayout } from './components/DashboardLayout';
 import { OverviewPageEnhanced } from './components/OverviewPageEnhanced';
@@ -11,8 +11,10 @@ import { MunicipalCommunicationChat } from './components/MunicipalCommunicationC
 import { StateOverviewPageEnhanced } from './components/StateOverviewPageEnhanced';
 import { StateCommunicationChat } from './components/StateCommunicationChat';
 import { Toaster } from './components/ui/sonner';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { toast } from 'sonner';
 import * as api from './utils/api';
+import { createClient } from './utils/supabase/client';
 
 interface Complaint {
   id: number;
@@ -47,10 +49,13 @@ export default function App() {
   const [stateId, setStateId] = useState<string>('');
   const [stateName, setStateName] = useState<string>('');
   const [selectedComplaintId, setSelectedComplaintId] = useState<number | null>(null);
+  const [selectedDepartmentCategory, setSelectedDepartmentCategory] = useState<string | null>(null);
   
   // Linking state - lifted to App level for reliable rendering
   const [linkingComplaint, setLinkingComplaint] = useState<Complaint | null>(null);
   const [categories, setCategories] = useState<api.Category[]>([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(false);
+  const [prefetchedPerformance, setPrefetchedPerformance] = useState<api.DepartmentPerformance[] | null>(null);
   const [linkTargetCategory, setLinkTargetCategory] = useState<string>('');
   const [linkNotes, setLinkNotes] = useState('');
   const [linkLoading, setLinkLoading] = useState(false);
@@ -90,13 +95,6 @@ export default function App() {
     }
   }, []);
 
-  // Load complaints when logged in
-  useEffect(() => {
-    if (isLoggedIn && userType === 'municipal' && municipalId) {
-      loadComplaints();
-    }
-  }, [isLoggedIn, municipalId, userType]);
-
   // Save current page to localStorage whenever it changes
   useEffect(() => {
     if (isLoggedIn) {
@@ -104,7 +102,7 @@ export default function App() {
     }
   }, [currentPage, isLoggedIn]);
 
-  const loadComplaints = async () => {
+  const loadComplaints = useCallback(async () => {
     try {
       setLoading(true);
       const data = await api.getComplaintsByMunicipal(municipalId);
@@ -118,7 +116,14 @@ export default function App() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [municipalId]);
+
+  // Load complaints when logged in
+  useEffect(() => {
+    if (isLoggedIn && userType === 'municipal' && municipalId) {
+      loadComplaints();
+    }
+  }, [isLoggedIn, municipalId, userType, loadComplaints]);
 
   const handleMunicipalLogin = (municipalId: string, municipalName: string, selectedStateId: string, selectedStateName: string) => {
     setIsLoggedIn(true);
@@ -176,14 +181,136 @@ export default function App() {
 
   const handleViewComplaint = (complaintId: number) => {
     setSelectedComplaintId(complaintId);
+    setSelectedDepartmentCategory(null);
     setCurrentPage('departments');
     localStorage.setItem('currentPage', 'departments');
   };
 
+  const handleOpenDepartmentFromOverview = (categoryId: string) => {
+    setSelectedComplaintId(null);
+    setSelectedDepartmentCategory(categoryId);
+    setCurrentPage('departments');
+    localStorage.setItem('currentPage', 'departments');
+  };
+
+  const handleCategoryLinkHandled = () => {
+    setSelectedDepartmentCategory(null);
+  };
+
   // Load categories for linking
+  const loadCategories = useCallback(async (silent: boolean = false) => {
+    const shouldShowLoading = !silent && categories.length === 0;
+    try {
+      if (shouldShowLoading) {
+        setCategoriesLoading(true);
+      }
+      const data = await api.getCategories();
+      setCategories(data);
+    } catch (error) {
+      console.error('Error loading categories:', error);
+    } finally {
+      if (shouldShowLoading) {
+        setCategoriesLoading(false);
+      }
+    }
+  }, [categories.length]);
+
   useEffect(() => {
-    api.getCategories().then(setCategories).catch(console.error);
-  }, []);
+    loadCategories();
+  }, [loadCategories]);
+
+  // Prefetch department performance so Performance page can render instantly.
+  useEffect(() => {
+    if (!isLoggedIn || userType !== 'municipal' || !municipalId) {
+      setPrefetchedPerformance(null);
+      return;
+    }
+
+    let cancelled = false;
+    api.getDepartmentPerformance(municipalId)
+      .then((data) => {
+        if (!cancelled) {
+          setPrefetchedPerformance(data);
+        }
+      })
+      .catch((error) => {
+        console.error('Error prefetching performance data:', error);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isLoggedIn, userType, municipalId]);
+
+  // Live updates for municipal complaints/categories. Falls back to interval refresh.
+  useEffect(() => {
+    if (!isLoggedIn || userType !== 'municipal' || !municipalId) return;
+
+    const supabase: any = createClient();
+    let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const scheduleComplaintsRefresh = () => {
+      if (refreshTimer) clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(() => {
+        loadComplaints();
+      }, 300);
+    };
+
+    if (typeof supabase.channel !== 'function' || typeof supabase.removeChannel !== 'function') {
+      const fallbackOnlyInterval = setInterval(() => {
+        loadComplaints();
+        loadCategories(true);
+      }, 20000);
+
+      return () => {
+        if (refreshTimer) clearTimeout(refreshTimer);
+        clearInterval(fallbackOnlyInterval);
+      };
+    }
+
+    const complaintsChannel = supabase
+      .channel(`complaints-live-${municipalId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'complaints',
+          filter: `municipal_id=eq.${municipalId}`,
+        },
+        () => {
+          scheduleComplaintsRefresh();
+        },
+      )
+      .subscribe();
+
+    const categoriesChannel = supabase
+      .channel('categories-live')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'categories',
+        },
+        () => {
+          loadCategories(true);
+        },
+      )
+      .subscribe();
+
+    const fallbackInterval = setInterval(() => {
+      loadComplaints();
+      loadCategories(true);
+    }, 20000);
+
+    return () => {
+      if (refreshTimer) clearTimeout(refreshTimer);
+      clearInterval(fallbackInterval);
+      supabase.removeChannel(complaintsChannel);
+      supabase.removeChannel(categoriesChannel);
+    };
+  }, [isLoggedIn, userType, municipalId, loadComplaints, loadCategories]);
 
   const handleLinkComplaint = (complaint: Complaint) => {
     setLinkingComplaint(complaint);
@@ -289,27 +416,48 @@ export default function App() {
     // Show all pages for municipal login
     switch (currentPage) {
       case 'overview':
-        return <OverviewPageEnhanced complaints={complaints} loading={loading} />;
+        return (
+          <OverviewPageEnhanced
+            complaints={complaints}
+            loading={loading}
+            onOpenCategory={handleOpenDepartmentFromOverview}
+          />
+        );
       case 'departments':
         return (
           <DepartmentsPage
             complaints={complaints}
             onResolve={handleResolve}
             loading={loading}
+            categories={categories}
+            categoriesLoading={categoriesLoading}
             selectedComplaintId={selectedComplaintId}
+            selectedCategoryId={selectedDepartmentCategory}
+            onCategoryLinkHandled={handleCategoryLinkHandled}
             onLinkComplaint={handleLinkComplaint}
           />
         );
       case 'stats':
         return <StatsPageEnhanced municipalId={municipalId} />;
       case 'performance':
-        return <PerformancePage municipalId={municipalId} />;
+        return (
+          <PerformancePage
+            municipalId={municipalId}
+            initialData={prefetchedPerformance}
+          />
+        );
       case 'reports':
         return <ReportsPage complaints={complaints} loading={loading} municipalName={municipalName} />;
       case 'help':
         return <HelpPage />;
       default:
-        return <OverviewPageEnhanced complaints={complaints} loading={loading} />;
+        return (
+          <OverviewPageEnhanced
+            complaints={complaints}
+            loading={loading}
+            onOpenCategory={handleOpenDepartmentFromOverview}
+          />
+        );
     }
   };
 
@@ -333,10 +481,20 @@ export default function App() {
             </div>
           </header>
 
-          <StateOverviewPageEnhanced stateId={stateId} stateName={stateName} />
+          <ErrorBoundary
+            fallbackTitle="State Overview Failed"
+            fallbackMessage="The state overview crashed. Retry this section without leaving the dashboard."
+          >
+            <StateOverviewPageEnhanced stateId={stateId} stateName={stateName} />
+          </ErrorBoundary>
         </div>
 
-        <StateCommunicationChat stateId={stateId} stateName={stateName} />
+        <ErrorBoundary
+          fallbackTitle="State Chat Failed"
+          fallbackMessage="State communication panel crashed. Retry to restore chat."
+        >
+          <StateCommunicationChat stateId={stateId} stateName={stateName} />
+        </ErrorBoundary>
 
         <Toaster position="top-right" />
       </>
@@ -351,18 +509,28 @@ export default function App() {
         onLogout={handleLogout}
         municipalName={municipalName}
       >
-        {renderMunicipalPage()}
+        <ErrorBoundary
+          fallbackTitle="Page Failed"
+          fallbackMessage="The current municipal page crashed. Retry this page while keeping your session active."
+        >
+          {renderMunicipalPage()}
+        </ErrorBoundary>
       </DashboardLayout>
       
       {/* Municipal Communication Chat */}
       {municipalId && stateId && (
-        <MunicipalCommunicationChat
-          stateId={stateId}
-          stateName={stateName}
-          municipalId={municipalId}
-          municipalName={municipalName}
-          onViewComplaint={handleViewComplaint}
-        />
+        <ErrorBoundary
+          fallbackTitle="Municipal Chat Failed"
+          fallbackMessage="Municipal communication panel crashed. Retry to restore chat."
+        >
+          <MunicipalCommunicationChat
+            stateId={stateId}
+            stateName={stateName}
+            municipalId={municipalId}
+            municipalName={municipalName}
+            onViewComplaint={handleViewComplaint}
+          />
+        </ErrorBoundary>
       )}
       
       {/* Link Complaint Dialog - rendered at App level */}

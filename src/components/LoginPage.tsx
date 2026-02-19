@@ -1,19 +1,50 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
 import { Label } from "./ui/label";
 import { Input } from "./ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
-import { Building2, Shield, ChevronRight, Lock, Loader2 } from "lucide-react";
+import { Building2, Shield, ChevronRight, Lock, Loader2, ArrowLeft } from "lucide-react";
 import * as api from "../utils/api";
+
+const LOGO_SRC = "/assets/ChatGPT Image Feb 19, 2026, 10_08_07 PM.png";
+let statesCache: api.State[] | null = null;
+let statesRequest: Promise<api.State[]> | null = null;
+const municipalsCache = new Map<string, api.Municipal[]>();
+const municipalsRequests = new Map<string, Promise<api.Municipal[]>>();
 
 interface LoginPageProps {
   onMunicipalLogin: (municipalId: string, municipalName: string, stateId: string, stateName: string) => void;
   onStateLogin: (stateId: string, stateName: string) => void;
 }
 
+function PageShell({ children }: { children: ReactNode }) {
+  return (
+    <div className="min-h-screen bg-[linear-gradient(135deg,#c1819c_0%,#4a66b1_100%)] p-4">
+      <div className="mx-auto flex min-h-screen w-full max-w-5xl items-center justify-center">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function HeaderIcon({ type }: { type: "municipal" | "state" | "main" }) {
+  if (type === "main") {
+    return (
+      <div className="mb-5 inline-flex h-20 w-20 items-center justify-center overflow-hidden rounded-full bg-[#062e63] shadow-[0_14px_28px_-8px_rgba(2,16,48,0.95)]">
+        <img src={LOGO_SRC} alt="CivicChain logo" className="h-full w-full object-cover" />
+      </div>
+    );
+  }
+  return (
+    <div className="mb-5 inline-flex h-20 w-20 items-center justify-center overflow-hidden rounded-full bg-[#062e63] shadow-[0_14px_28px_-8px_rgba(2,16,48,0.95)]">
+      <img src={LOGO_SRC} alt="CivicChain logo" className="h-full w-full object-cover" />
+    </div>
+  );
+}
+
 export function LoginPage({ onMunicipalLogin, onStateLogin }: LoginPageProps) {
-  const [loginType, setLoginType] = useState<'municipal' | 'state' | null>(null);
+  const [loginType, setLoginType] = useState<"municipal" | "state" | null>(null);
   const [selectedState, setSelectedState] = useState<string>("");
   const [selectedMunicipal, setSelectedMunicipal] = useState<string>("");
   const [password, setPassword] = useState<string>("");
@@ -24,61 +55,71 @@ export function LoginPage({ onMunicipalLogin, onStateLogin }: LoginPageProps) {
   const [loadingStates, setLoadingStates] = useState(false);
   const [loadingMunicipals, setLoadingMunicipals] = useState(false);
 
-  // Load states when municipal or state login is selected
   useEffect(() => {
-    if (loginType === 'municipal' || loginType === 'state') {
-      loadStates();
+    // Warm cache as soon as login page mounts for faster first interaction.
+    void loadStates();
+  }, []);
+
+  useEffect(() => {
+    if (loginType === "municipal" || loginType === "state") {
+      void loadStates();
     }
   }, [loginType]);
 
-  // Load municipals when state is selected for municipal login
   useEffect(() => {
-    if (selectedState && loginType === 'municipal') {
+    if (selectedState && loginType === "municipal") {
       loadMunicipals(selectedState);
     }
   }, [selectedState, loginType]);
 
   const loadStates = async () => {
+    if (statesCache) {
+      setStates(statesCache);
+      return;
+    }
+
     try {
       setLoadingStates(true);
-      const data = await api.getStates();
+      if (!statesRequest) {
+        statesRequest = api.getStates();
+      }
+      const data = await statesRequest;
+      statesCache = data;
       setStates(data);
-    } catch (error) {
-      console.error('Error loading states:', error);
-      setError('Failed to load states. Please try again.');
+    } catch (err) {
+      console.error("Error loading states:", err);
+      setError("Failed to load states. Please try again.");
     } finally {
+      statesRequest = null;
       setLoadingStates(false);
     }
   };
 
   const loadMunicipals = async (stateId: string) => {
+    const cachedMunicipals = municipalsCache.get(stateId);
+    if (cachedMunicipals) {
+      setMunicipals(cachedMunicipals);
+      return;
+    }
+
     try {
       setLoadingMunicipals(true);
-      const data = await api.getMunicipalsByState(stateId);
+      if (!municipalsRequests.has(stateId)) {
+        municipalsRequests.set(stateId, api.getMunicipalsByState(stateId));
+      }
+      const data = await municipalsRequests.get(stateId)!;
+      municipalsCache.set(stateId, data);
       setMunicipals(data);
-    } catch (error) {
-      console.error('Error loading municipals:', error);
-      setError('Failed to load municipal corporations. Please try again.');
+    } catch (err) {
+      console.error("Error loading municipals:", err);
+      setError("Failed to load municipal corporations. Please try again.");
     } finally {
+      municipalsRequests.delete(stateId);
       setLoadingMunicipals(false);
     }
   };
 
-  const handleMunicipalLogin = () => {
-    setLoginType('municipal');
-    setError("");
-    loadStates();
-  };
-
-  const handleStateLogin = () => {
-    setLoginType('state');
-    setError("");
-    loadStates();
-    setSelectedMunicipal("");
-  };
-
-  const handleBack = () => {
-    setLoginType(null);
+  const resetForm = () => {
     setSelectedState("");
     setSelectedMunicipal("");
     setPassword("");
@@ -86,10 +127,15 @@ export function LoginPage({ onMunicipalLogin, onStateLogin }: LoginPageProps) {
     setMunicipals([]);
   };
 
+  const handleBack = () => {
+    setLoginType(null);
+    resetForm();
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (loginType === 'state') {
+
+    if (loginType === "state") {
       if (!selectedState || !password) {
         setError("Please fill in all fields");
         return;
@@ -103,8 +149,6 @@ export function LoginPage({ onMunicipalLogin, onStateLogin }: LoginPageProps) {
 
       setLoading(true);
       setError("");
-
-      // Demo-only credential check to keep flow consistent with municipal login
       const expectedPassword = `${selectedState}123`;
       if (password !== expectedPassword) {
         setError(`Invalid credentials. For demo use password ${expectedPassword}`);
@@ -127,22 +171,23 @@ export function LoginPage({ onMunicipalLogin, onStateLogin }: LoginPageProps) {
       setLoading(true);
       setError("");
       const result = await api.loginMunicipal(selectedMunicipal, password);
-      
-      if (result.success) {
-        const stateData = states.find(s => s.id === selectedState);
-        if (stateData) {
-          localStorage.setItem('selectedStateId', stateData.id);
-          localStorage.setItem('selectedStateName', stateData.name);
-          onMunicipalLogin(result.municipal.id, result.municipal.name, stateData.id, stateData.name);
-        } else {
-          setError('Unable to identify selected state. Please try again.');
-        }
-      } else {
+      if (!result.success) {
         setError(result.message || "Invalid credentials. Please try again.");
         setPassword("");
+        return;
       }
-    } catch (error) {
-      console.error('Login error:', error);
+
+      const stateData = states.find((s) => s.id === selectedState);
+      if (!stateData) {
+        setError("Unable to identify selected state. Please try again.");
+        return;
+      }
+
+      localStorage.setItem("selectedStateId", stateData.id);
+      localStorage.setItem("selectedStateName", stateData.name);
+      onMunicipalLogin(result.municipal.id, result.municipal.name, stateData.id, stateData.name);
+    } catch (err) {
+      console.error("Login error:", err);
       setError("Login failed. Please check your credentials and try again.");
       setPassword("");
     } finally {
@@ -150,294 +195,187 @@ export function LoginPage({ onMunicipalLogin, onStateLogin }: LoginPageProps) {
     }
   };
 
-  // Municipal Login Screen
-  if (loginType === 'municipal') {
+  if (!loginType) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md p-8 shadow-lg">
-          <button
-            onClick={handleBack}
-            className="text-blue-600 hover:text-blue-700 text-sm mb-4 flex items-center gap-1"
-          >
-            ← Back
-          </button>
-
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-full mb-4">
-              <Building2 className="w-8 h-8 text-white" />
-            </div>
-            <h1 className="mb-2">Municipal Login</h1>
-            <p className="text-gray-600">Select your state and municipal corporation</p>
+      <PageShell>
+        <Card className="w-full max-w-md rounded-[2.5rem] border-2 border-[#10213f] bg-white p-8 shadow-[0_22px_70px_-14px_rgba(0,0,0,0.95),0_42px_120px_-30px_rgba(0,0,0,0.9)]">
+          <div className="text-center">
+            <HeaderIcon type="main" />
+            <h1 className="text-2xl text-slate-900">CivicChain Login</h1>
+            <p className="mt-1 text-sm text-slate-600">Choose your dashboard type</p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="state">Select State</Label>
-              <Select 
-                value={selectedState} 
-                onValueChange={(value) => {
-                  setSelectedState(value);
-                  setSelectedMunicipal("");
-                  setError("");
-                }}
-                disabled={loadingStates}
-              >
-                <SelectTrigger id="state">
-                  {loadingStates ? (
-                    <span className="flex items-center gap-2">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Loading states...
-                    </span>
-                  ) : (
-                    <SelectValue placeholder="Choose your state" />
-                  )}
-                </SelectTrigger>
-                <SelectContent>
-                  {states.map((state) => (
-                    <SelectItem key={state.id} value={state.id}>
-                      {state.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {selectedState && (
-              <div className="space-y-2">
-                <Label htmlFor="municipal">Select Municipal Corporation</Label>
-                <Select 
-                  value={selectedMunicipal} 
-                  onValueChange={(value) => {
-                    setSelectedMunicipal(value);
-                    setError("");
-                  }}
-                  disabled={loadingMunicipals}
-                >
-                  <SelectTrigger id="municipal">
-                    {loadingMunicipals ? (
-                      <span className="flex items-center gap-2">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Loading municipals...
-                      </span>
-                    ) : (
-                      <SelectValue placeholder="Choose your municipal corporation" />
-                    )}
-                  </SelectTrigger>
-                  <SelectContent>
-                    {municipals.map((municipal) => (
-                      <SelectItem key={municipal.id} value={municipal.id}>
-                        {municipal.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            {selectedMunicipal && (
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder="Enter your password"
-                    value={password}
-                    onChange={(e) => {
-                      setPassword(e.target.value);
-                      setError("");
-                    }}
-                    className="pl-10"
-                    disabled={loading}
-                  />
-                </div>
-                <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-800">
-                  <p className="font-semibold mb-1">Demo Credentials:</p>
-                  <p>Password: {selectedMunicipal}123</p>
-                  <p className="text-blue-600 mt-1">Example: mumbai123, pune123, blr123</p>
-                </div>
-              </div>
-            )}
-
-            {error && (
-              <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg text-sm">
-                {error}
-              </div>
-            )}
+          <div className="mt-8 space-y-3">
+            <Button
+              onClick={() => {
+                resetForm();
+                setLoginType("municipal");
+              }}
+              onMouseEnter={() => {
+                void loadStates();
+              }}
+              onFocus={() => {
+                void loadStates();
+              }}
+              className="h-12 w-full !bg-[#0a3f86] !text-white hover:!bg-[#08366f]"
+            >
+              <Building2 className="mr-2 h-5 w-5" />
+              Municipal Login
+              <ChevronRight className="ml-auto h-5 w-5" />
+            </Button>
 
             <Button
-              type="submit"
-              className="w-full h-12 bg-blue-600 hover:bg-blue-700"
-              disabled={!selectedState || !selectedMunicipal || !password || loading}
+              onClick={() => {
+                resetForm();
+                setLoginType("state");
+              }}
+              onMouseEnter={() => {
+                void loadStates();
+              }}
+              onFocus={() => {
+                void loadStates();
+              }}
+              className="h-12 w-full !bg-[#364e9c] !text-white hover:!bg-[#2e4387]"
             >
-              {loading ? (
-                <>
-                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                  Logging in...
-                </>
-              ) : (
-                <>
-                  Login to Dashboard
-                  <ChevronRight className="ml-2 h-5 w-5" />
-                </>
-              )}
+              <Shield className="mr-2 h-5 w-5" />
+              State Login
+              <ChevronRight className="ml-auto h-5 w-5" />
             </Button>
-          </form>
-
-          <div className="mt-6 pt-6 border-t text-center text-sm text-gray-500">
-            <p>Authorized Personnel Only</p>
           </div>
         </Card>
-      </div>
+      </PageShell>
     );
   }
 
-  // State Login Screen
-  if (loginType === 'state') {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md p-8 shadow-lg">
-          <button
-            onClick={handleBack}
-            className="text-blue-600 hover:text-blue-700 text-sm mb-4 flex items-center gap-1"
-          >
-            ← Back
-          </button>
-
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full mb-4">
-              <Shield className="w-8 h-8 text-white" />
-            </div>
-            <h1 className="mb-2">State Login</h1>
-            <p className="text-gray-600">Access state oversight dashboard</p>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="state">Select State</Label>
-              <Select 
-                value={selectedState} 
-                onValueChange={(value) => {
-                  setSelectedState(value);
-                  setError("");
-                }}
-                disabled={loadingStates}
-              >
-                <SelectTrigger id="state">
-                  {loadingStates ? (
-                    <span className="flex items-center gap-2">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Loading states...
-                    </span>
-                  ) : (
-                    <SelectValue placeholder="Choose your state" />
-                  )}
-                </SelectTrigger>
-                <SelectContent>
-                  {states.map((state) => (
-                    <SelectItem key={state.id} value={state.id}>
-                      {state.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {selectedState && (
-              <div className="space-y-2">
-                <Label htmlFor="state-password">Password</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
-                  <Input
-                    id="state-password"
-                    type="password"
-                    placeholder="Enter your password"
-                    value={password}
-                    onChange={(e) => {
-                      setPassword(e.target.value);
-                      setError("");
-                    }}
-                    className="pl-10"
-                    disabled={loading}
-                  />
-                </div>
-                <div className="mt-2 p-2 bg-purple-50 border border-purple-200 rounded text-xs text-purple-800">
-                  <p className="font-semibold mb-1">Demo Credentials:</p>
-                  <p>Password: {selectedState}123</p>
-                  <p className="text-purple-700 mt-1">Example: maharashtra123</p>
-                </div>
-              </div>
-            )}
-
-            {error && (
-              <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg text-sm">
-                {error}
-              </div>
-            )}
-
-            <Button
-              type="submit"
-              className="w-full h-12 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
-              disabled={!selectedState || !password || loading}
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                  Logging in...
-                </>
-              ) : (
-                <>
-                  Login to State Dashboard
-                  <ChevronRight className="ml-2 h-5 w-5" />
-                </>
-              )}
-            </Button>
-          </form>
-
-          <div className="mt-6 pt-6 border-t text-center text-sm text-gray-500">
-            <p>Authorized State Officials Only</p>
-          </div>
-        </Card>
-      </div>
-    );
-  }
+  const isState = loginType === "state";
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 flex items-center justify-center p-4">
-      <Card className="w-full max-w-md p-8 shadow-lg">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-full mb-4">
-            <Building2 className="w-8 h-8 text-white" />
+    <PageShell>
+      <Card className="w-full max-w-md rounded-[2.5rem] border-2 border-[#10213f] bg-white p-8 shadow-[0_22px_70px_-14px_rgba(0,0,0,0.95),0_42px_120px_-30px_rgba(0,0,0,0.9)]">
+        <button
+          onClick={handleBack}
+          className="mb-3 inline-flex items-center gap-2 text-sm text-slate-700 hover:text-slate-900"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back
+        </button>
+
+        <div className="text-center">
+          <HeaderIcon type={isState ? "state" : "municipal"} />
+          <h1 className="text-2xl text-slate-900">{isState ? "State Login" : "Municipal Login"}</h1>
+          <p className="mt-1 text-sm text-slate-600">
+            {isState ? "Access state dashboard" : "Access municipal dashboard"}
+          </p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="state" className="text-slate-700">State</Label>
+            <Select
+              value={selectedState}
+              onValueChange={(value) => {
+                setSelectedState(value);
+                setSelectedMunicipal("");
+                setMunicipals(municipalsCache.get(value) || []);
+                setError("");
+              }}
+              disabled={loadingStates}
+            >
+              <SelectTrigger id="state" className="h-11 border-slate-300 bg-white text-slate-900">
+                {loadingStates ? (
+                  <span className="flex items-center gap-2 text-slate-600">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Loading states...
+                  </span>
+                ) : (
+                  <SelectValue placeholder="Select state" />
+                )}
+              </SelectTrigger>
+              <SelectContent>
+                {states.map((state) => (
+                  <SelectItem key={state.id} value={state.id}>
+                    {state.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-          <h1 className="mb-2">Smart Citizen Complaint System</h1>
-          <p className="text-gray-600">Municipal Dashboard Login</p>
-        </div>
 
-        <div className="space-y-4">
+          {!isState && (
+            <div className="space-y-2">
+              <Label htmlFor="municipal" className="text-slate-700">Municipal Corporation</Label>
+              <Select
+                value={selectedMunicipal}
+                onValueChange={(value) => {
+                  setSelectedMunicipal(value);
+                  setError("");
+                }}
+                disabled={!selectedState || loadingMunicipals}
+              >
+                <SelectTrigger id="municipal" className="h-11 border-slate-300 bg-white text-slate-900">
+                  {loadingMunicipals ? (
+                    <span className="flex items-center gap-2 text-slate-600">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Loading municipals...
+                    </span>
+                  ) : (
+                    <SelectValue placeholder="Select municipal corporation" />
+                  )}
+                </SelectTrigger>
+                <SelectContent>
+                  {municipals.map((municipal) => (
+                    <SelectItem key={municipal.id} value={municipal.id}>
+                      {municipal.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <Label htmlFor="password" className="text-slate-700">Password</Label>
+            <div className="relative">
+              <Lock className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+              <Input
+                id="password"
+                type="password"
+                placeholder="Enter password"
+                value={password}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  setError("");
+                }}
+                className="h-11 border-slate-300 bg-white pl-10 text-slate-900 placeholder:text-slate-400"
+                disabled={loading}
+              />
+            </div>
+            <p className="text-xs text-slate-500">
+              Demo password: {isState ? `${selectedState || "<state>"}123` : `${selectedMunicipal || "<municipal>"}123`}
+            </p>
+          </div>
+
+          {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+
           <Button
-            onClick={handleMunicipalLogin}
-            className="w-full h-14 bg-blue-600 hover:bg-blue-700"
+            type="submit"
+            className="h-12 w-full !bg-[#0a3f86] !text-white hover:!bg-[#08366f]"
+            disabled={loading || !selectedState || (!isState && !selectedMunicipal) || !password}
           >
-            <Building2 className="mr-2 h-5 w-5" />
-            Municipal Login
-            <ChevronRight className="ml-auto h-5 w-5" />
+            {loading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Logging in...
+              </>
+            ) : (
+              <>
+                Login
+                <ChevronRight className="ml-2 h-4 w-4" />
+              </>
+            )}
           </Button>
-
-          <Button
-            onClick={handleStateLogin}
-            className="w-full h-14 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
-          >
-            <Shield className="mr-2 h-5 w-5" />
-            State Login
-            <ChevronRight className="ml-auto h-5 w-5" />
-          </Button>
-        </div>
-
-        <div className="mt-8 pt-6 border-t text-center text-sm text-gray-500">
-          <p>Authorized Personnel Only</p>
-        </div>
+        </form>
       </Card>
-    </div>
+    </PageShell>
   );
 }

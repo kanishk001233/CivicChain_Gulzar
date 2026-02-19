@@ -506,6 +506,8 @@ export async function getMunicipalStatsForState(stateId: string): Promise<Munici
     if (error) continue;
     
     const total = complaints?.length || 0;
+    // Exclude municipalities with no complaints from comparison/ranking views.
+    if (total === 0) continue;
     const pending = complaints?.filter(c => c.status === 'pending').length || 0;
     const resolved = complaints?.filter(c => c.status === 'resolved').length || 0;
     const verified = complaints?.filter(c => c.status === 'verified').length || 0;

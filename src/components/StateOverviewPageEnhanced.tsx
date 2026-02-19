@@ -22,10 +22,11 @@ import {
   MessageSquare,
   CheckCircle2,
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import * as api from "../utils/api";
 import { Button } from "./ui/button";
 import { toast } from "sonner";
+import { createClient } from "../utils/supabase/client";
 import {
   BarChart,
   Bar,
@@ -69,13 +70,11 @@ export function StateOverviewPageEnhanced({
   const [forecast, setForecast] = useState<api.CategoryForecast[]>([]);
   const [escalatedComplaints, setEscalatedComplaints] = useState<api.EscalatedComplaint[]>([]);
 
-  useEffect(() => {
-    loadStateData();
-  }, [stateId]);
-
-  const loadStateData = async () => {
+  const loadStateData = useCallback(async (silent: boolean = false) => {
     try {
-      setLoading(true);
+      if (!silent) {
+        setLoading(true);
+      }
       const [stats, munStats, deptPerf, trends, forecastData, escalated] = await Promise.all([
         api.getStateStats(stateId),
         api.getMunicipalStatsForState(stateId),
@@ -93,9 +92,105 @@ export function StateOverviewPageEnhanced({
     } catch (error) {
       console.error('Error loading state data:', error);
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
-  };
+  }, [stateId]);
+
+  useEffect(() => {
+    loadStateData();
+  }, [stateId, loadStateData]);
+
+  // Live state dashboard updates without manual browser refresh.
+  useEffect(() => {
+    if (!stateId) return;
+
+    const supabase: any = createClient();
+    let cancelled = false;
+    let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+    let stateChannel: any = null;
+    let municipalIds = new Set<string>();
+
+    const scheduleRefresh = () => {
+      if (refreshTimer) clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(() => {
+        loadStateData(true);
+      }, 400);
+    };
+
+    if (typeof supabase.channel !== 'function' || typeof supabase.removeChannel !== 'function') {
+      const fallbackOnlyInterval = setInterval(() => {
+        loadStateData(true);
+      }, 30000);
+
+      return () => {
+        cancelled = true;
+        if (refreshTimer) clearTimeout(refreshTimer);
+        clearInterval(fallbackOnlyInterval);
+      };
+    }
+
+    const initSubscription = async () => {
+      const { data, error } = await supabase
+        .from('municipals')
+        .select('id')
+        .eq('state_id', stateId);
+
+      if (cancelled) return;
+
+      if (error) {
+        console.error('Error loading municipals for realtime sync:', error);
+        return;
+      }
+
+      municipalIds = new Set((data || []).map((m: any) => m.id));
+
+      stateChannel = supabase
+        .channel(`state-live-${stateId}`)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'complaints' },
+          (payload: any) => {
+            const changedMunicipalId = payload?.new?.municipal_id ?? payload?.old?.municipal_id;
+            if (changedMunicipalId && municipalIds.has(changedMunicipalId)) {
+              scheduleRefresh();
+            }
+          },
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'municipals', filter: `state_id=eq.${stateId}` },
+          () => {
+            scheduleRefresh();
+          },
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'categories' },
+          () => {
+            scheduleRefresh();
+          },
+        )
+        .subscribe();
+    };
+
+    initSubscription();
+
+    // Fallback polling in case realtime replication is unavailable.
+    const fallbackInterval = setInterval(() => {
+      loadStateData(true);
+    }, 30000);
+
+    return () => {
+      cancelled = true;
+      if (refreshTimer) clearTimeout(refreshTimer);
+      clearInterval(fallbackInterval);
+      if (stateChannel) {
+        supabase.removeChannel(stateChannel);
+      }
+    };
+  }, [stateId, loadStateData]);
 
   const handleSeekExplanation = async (complaint: api.EscalatedComplaint) => {
     setActionLoading(complaint.id);
@@ -154,9 +249,8 @@ ${stateName} State Administration`;
       // Remove from escalated list
       setEscalatedComplaints(prev => prev.filter(c => c.id !== complaint.id));
       
-      // Refresh state stats
-      const stats = await api.getStateStats(stateId);
-      setStateStats(stats);
+      // Refresh full state dashboard so all widgets stay in sync.
+      loadStateData(true);
 
       toast.success('Complaint marked as resolved', {
         description: `Complaint #${complaint.id} has been resolved at state level`,

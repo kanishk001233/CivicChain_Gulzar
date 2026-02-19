@@ -9,18 +9,31 @@ import { HeatmapCard } from "./HeatmapCard";
 
 interface PerformancePageProps {
   municipalId: string;
+  initialData?: DepartmentPerformance[] | null;
 }
 
-export function PerformancePage({ municipalId }: PerformancePageProps) {
-  const [departmentPerformance, setDepartmentPerformance] = useState<DepartmentPerformance[]>([]);
-  const [loading, setLoading] = useState(true);
+export function PerformancePage({ municipalId, initialData }: PerformancePageProps) {
+  const [departmentPerformance, setDepartmentPerformance] = useState<DepartmentPerformance[]>(
+    initialData || [],
+  );
+  const [loading, setLoading] = useState(!(initialData && initialData.length > 0));
 
   useEffect(() => {
-    loadPerformanceData();
+    if (initialData && initialData.length > 0) {
+      setDepartmentPerformance(initialData);
+      setLoading(false);
+    }
+  }, [initialData]);
+
+  useEffect(() => {
+    loadPerformanceData(initialData && initialData.length > 0);
   }, [municipalId]);
 
-  async function loadPerformanceData() {
+  async function loadPerformanceData(silent: boolean = false) {
     try {
+      if (!silent) {
+        setLoading(true);
+      }
       const data = await getDepartmentPerformance(municipalId);
       setDepartmentPerformance(data);
     } catch (error) {
@@ -71,7 +84,9 @@ export function PerformancePage({ municipalId }: PerformancePageProps) {
         },
       ]);
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   }
 
@@ -107,9 +122,9 @@ export function PerformancePage({ municipalId }: PerformancePageProps) {
 
   if (loading) {
     return (
-      <div className="p-8 flex items-center justify-center h-full">
+      <div className="flex h-full items-center justify-center p-8">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-b-2 border-blue-600"></div>
           <p className="text-gray-600">Loading performance data...</p>
         </div>
       </div>
@@ -117,64 +132,66 @@ export function PerformancePage({ municipalId }: PerformancePageProps) {
   }
 
   return (
-    <div className="p-8">
-      <div className="mb-8">
-        <h1 className="mb-2">Department Performance</h1>
-        <p className="text-gray-600">Track and compare department efficiency</p>
+    <div className="relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_15%_10%,#f5fbff_0%,#ebf4ff_42%,#edf0ff_100%)] p-8">
+      <div className="pointer-events-none absolute -left-24 -top-24 h-80 w-80 rounded-full bg-cyan-300/35 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-28 right-0 h-96 w-96 rounded-full bg-indigo-300/30 blur-3xl" />
+      <div className="relative mb-8">
+        <h1 className="mb-2 text-3xl font-semibold text-slate-900">Department Performance</h1>
+        <p className="text-slate-600">Track department efficiency, rankings, and resolution trends</p>
       </div>
 
       {/* Performance Overview Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <Card className="p-6">
+      <div className="relative mb-8 grid grid-cols-1 gap-6 md:grid-cols-4">
+        <Card className="border-blue-200 bg-gradient-to-br from-blue-50 to-blue-100 p-6 shadow-sm">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-gray-600">Total Complaints</span>
+            <span className="text-slate-600">Total Complaints</span>
             <CheckCircle className="w-5 h-5 text-blue-600" />
           </div>
-          <div className="text-gray-900">{totalComplaints}</div>
-          <p className="text-xs text-gray-500 mt-1">All departments</p>
+          <div className="text-2xl font-semibold text-slate-900">{totalComplaints}</div>
+          <p className="mt-1 text-xs text-slate-500">All departments</p>
         </Card>
 
-        <Card className="p-6">
+        <Card className="border-emerald-200 bg-gradient-to-br from-emerald-50 to-emerald-100 p-6 shadow-sm">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-gray-600">Resolved</span>
+            <span className="text-slate-600">Resolved</span>
             <TrendingUp className="w-5 h-5 text-green-600" />
           </div>
-          <div className="text-gray-900">{totalResolved}</div>
-          <p className="text-xs text-gray-500 mt-1">{avgResolutionRate}% resolution rate</p>
+          <div className="text-2xl font-semibold text-slate-900">{totalResolved}</div>
+          <p className="mt-1 text-xs text-slate-500">{avgResolutionRate}% resolution rate</p>
         </Card>
 
-        <Card className="p-6">
+        <Card className="border-amber-200 bg-gradient-to-br from-amber-50 to-amber-100 p-6 shadow-sm">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-gray-600">Avg Resolution</span>
+            <span className="text-slate-600">Avg Resolution</span>
             <Clock className="w-5 h-5 text-amber-600" />
           </div>
-          <div className="text-gray-900">{avgResolutionTime} days</div>
-          <p className="text-xs text-gray-500 mt-1">Overall average</p>
+          <div className="text-2xl font-semibold text-slate-900">{avgResolutionTime} days</div>
+          <p className="mt-1 text-xs text-slate-500">Overall average</p>
         </Card>
 
-        <Card className="p-6">
+        <Card className="border-violet-200 bg-gradient-to-br from-violet-50 to-violet-100 p-6 shadow-sm">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-gray-600">Top Performer</span>
+            <span className="text-slate-600">Top Performer</span>
             <Trophy className="w-5 h-5 text-yellow-600" />
           </div>
-          <div className="text-gray-900">{topPerformer?.department || 'N/A'}</div>
-          <p className="text-xs text-gray-500 mt-1">{topPerformer?.score || 0}% score</p>
+          <div className="text-lg font-semibold text-slate-900">{topPerformer?.department || 'N/A'}</div>
+          <p className="mt-1 text-xs text-slate-500">{topPerformer?.score || 0}% score</p>
         </Card>
       </div>
       {/* Heatmap */}
       <HeatmapCard municipalId={municipalId} />
 
       {/* Department Leaderboard */}
-      <Card className="p-6 mb-6">
+      <Card className="mb-6 border-slate-200 bg-white p-6 shadow-md">
         <div className="flex items-center gap-2 mb-6">
           <Trophy className="w-6 h-6 text-yellow-600" />
-          <h2>Department Leaderboard</h2>
+          <h2 className="text-xl font-semibold text-slate-900">Department Leaderboard</h2>
         </div>
         <div className="space-y-4">
           {sortedDepartments.map((dept, index) => {
             const badge = getScoreBadge(dept.score);
             return (
-              <div key={dept.department} className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
+              <div key={dept.department} className="flex items-center gap-4 rounded-lg border border-slate-200 bg-slate-50/90 p-4">
                 <div className={`flex items-center justify-center w-10 h-10 rounded-full ${
                   index === 0 ? 'bg-yellow-100 text-yellow-700' :
                   index === 1 ? 'bg-gray-100 text-gray-700' :
@@ -204,24 +221,24 @@ export function PerformancePage({ municipalId }: PerformancePageProps) {
       </Card>
 
       {/* Detailed Performance Table */}
-      <Card className="p-6 mb-6">
-        <h2 className="mb-6">Detailed Performance Metrics</h2>
+      <Card className="mb-6 border-slate-200 bg-white p-6 shadow-md">
+        <h2 className="mb-6 text-xl font-semibold text-slate-900">Detailed Performance Metrics</h2>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="border-b">
-                <th className="text-left p-4 text-gray-600">Department</th>
-                <th className="text-right p-4 text-gray-600">Total</th>
-                <th className="text-right p-4 text-gray-600">Resolved</th>
-                <th className="text-right p-4 text-gray-600">Avg Resolution Time</th>
-                <th className="text-right p-4 text-gray-600">Score</th>
+              <tr className="border-b border-slate-200">
+                <th className="p-4 text-left text-slate-600">Department</th>
+                <th className="p-4 text-right text-slate-600">Total</th>
+                <th className="p-4 text-right text-slate-600">Resolved</th>
+                <th className="p-4 text-right text-slate-600">Avg Resolution Time</th>
+                <th className="p-4 text-right text-slate-600">Score</th>
               </tr>
             </thead>
             <tbody>
               {departmentPerformance.map((dept) => {
                 const resolutionRate = Math.round((dept.resolved / dept.total) * 100);
                 return (
-                  <tr key={dept.department} className="border-b hover:bg-gray-50">
+                  <tr key={dept.department} className="border-b border-slate-100 hover:bg-slate-50">
                     <td className="p-4">{dept.department}</td>
                     <td className="p-4 text-right">{dept.total}</td>
                     <td className="p-4 text-right">
@@ -244,10 +261,10 @@ export function PerformancePage({ municipalId }: PerformancePageProps) {
 
       
       {/* Performance Chart - Resolution Rate Comparison */}
-      <Card className="p-6 mt-6">
+      <Card className="mt-6 border-slate-200 bg-white p-6 shadow-md">
         <div className="mb-6">
-          <h2 className="mb-2">Resolution Rate Comparison</h2>
-          <p className="text-sm text-gray-600">Department-wise total vs resolved complaints</p>
+          <h2 className="mb-2 text-xl font-semibold text-slate-900">Resolution Rate Comparison</h2>
+          <p className="text-sm text-slate-600">Department-wise total vs resolved complaints</p>
         </div>
         
         <div className="space-y-8">

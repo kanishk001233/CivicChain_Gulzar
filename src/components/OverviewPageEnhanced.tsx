@@ -46,9 +46,10 @@ interface Complaint {
 interface OverviewPageProps {
   complaints: Complaint[];
   loading?: boolean;
+  onOpenCategory?: (categoryId: string) => void;
 }
 
-export function OverviewPageEnhanced({ complaints, loading }: OverviewPageProps) {
+export function OverviewPageEnhanced({ complaints, loading, onOpenCategory }: OverviewPageProps) {
   if (loading) {
     return (
       <div className="p-8 flex items-center justify-center min-h-screen">
@@ -143,7 +144,7 @@ export function OverviewPageEnhanced({ complaints, loading }: OverviewPageProps)
       {/* Main Stats Cards - Enhanced Design */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         {/* Total Complaints */}
-        <Card className="relative overflow-hidden bg-gradient-to-br from-blue-500 to-blue-700 text-white shadow-2xl hover:shadow-3xl transition-all transform hover:-translate-y-1">
+        <Card className="glow-card glow-blue relative overflow-hidden bg-gradient-to-br from-blue-500 to-blue-700 text-white shadow-2xl hover:shadow-3xl transition-all transform hover:-translate-y-1">
           <div className="absolute top-0 right-0 w-40 h-40 bg-white opacity-10 rounded-full -mr-20 -mt-20"></div>
           <div className="absolute bottom-0 left-0 w-32 h-32 bg-white opacity-5 rounded-full -ml-16 -mb-16"></div>
           <div className="p-6 relative">
@@ -178,7 +179,7 @@ export function OverviewPageEnhanced({ complaints, loading }: OverviewPageProps)
         </Card>
 
         {/* Pending */}
-        <Card className="relative overflow-hidden bg-gradient-to-br from-orange-500 to-orange-700 text-white shadow-2xl hover:shadow-3xl transition-all transform hover:-translate-y-1">
+        <Card className="glow-card glow-orange relative overflow-hidden bg-gradient-to-br from-orange-500 to-orange-700 text-white shadow-2xl hover:shadow-3xl transition-all transform hover:-translate-y-1">
           <div className="absolute top-0 right-0 w-40 h-40 bg-white opacity-10 rounded-full -mr-20 -mt-20"></div>
           <div className="absolute bottom-0 left-0 w-32 h-32 bg-white opacity-5 rounded-full -ml-16 -mb-16"></div>
           <div className="p-6 relative">
@@ -208,7 +209,7 @@ export function OverviewPageEnhanced({ complaints, loading }: OverviewPageProps)
         </Card>
 
         {/* In Progress */}
-        <Card className="relative overflow-hidden bg-gradient-to-br from-cyan-500 to-cyan-700 text-white shadow-2xl hover:shadow-3xl transition-all transform hover:-translate-y-1">
+        <Card className="glow-card glow-cyan relative overflow-hidden bg-gradient-to-br from-cyan-500 to-cyan-700 text-white shadow-2xl hover:shadow-3xl transition-all transform hover:-translate-y-1">
           <div className="absolute top-0 right-0 w-40 h-40 bg-white opacity-10 rounded-full -mr-20 -mt-20"></div>
           <div className="absolute bottom-0 left-0 w-32 h-32 bg-white opacity-5 rounded-full -ml-16 -mb-16"></div>
           <div className="p-6 relative">
@@ -238,7 +239,7 @@ export function OverviewPageEnhanced({ complaints, loading }: OverviewPageProps)
         </Card>
 
         {/* Resolved */}
-        <Card className="relative overflow-hidden bg-gradient-to-br from-green-500 to-green-700 text-white shadow-2xl hover:shadow-3xl transition-all transform hover:-translate-y-1">
+        <Card className="glow-card glow-green relative overflow-hidden bg-gradient-to-br from-green-500 to-green-700 text-white shadow-2xl hover:shadow-3xl transition-all transform hover:-translate-y-1">
           <div className="absolute top-0 right-0 w-40 h-40 bg-white opacity-10 rounded-full -mr-20 -mt-20"></div>
           <div className="absolute bottom-0 left-0 w-32 h-32 bg-white opacity-5 rounded-full -ml-16 -mb-16"></div>
           <div className="p-6 relative">
@@ -340,6 +341,15 @@ export function OverviewPageEnhanced({ complaints, loading }: OverviewPageProps)
               <div 
                 key={category.id} 
                 className="relative group text-center p-5 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl hover:from-blue-50 hover:to-purple-50 transition-all border-2 border-gray-200 hover:border-blue-400 cursor-pointer transform hover:-translate-y-1 hover:shadow-xl"
+                onClick={() => onOpenCategory?.(category.id)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    onOpenCategory?.(category.id);
+                  }
+                }}
               >
                 <div className="text-4xl mb-3 transform group-hover:scale-110 transition-transform">
                   {category.icon}

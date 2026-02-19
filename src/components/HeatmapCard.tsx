@@ -15,6 +15,11 @@ interface ComplaintLocation {
   weight: number;
 }
 
+const GOOGLE_MAPS_SCRIPT_ID = "google-maps-visualization-script";
+const COMPLAINTS_CACHE_TTL_MS = 20_000;
+let googleMapsLoaderPromise: Promise<void> | null = null;
+const complaintsCache = new Map<string, { ts: number; data: Complaint[] }>();
+
 // Municipal center coordinates
 const municipalCenters: Record<string, { lat: number; lng: number; zoom: number }> = {
   mumbai: { lat: 19.0760, lng: 72.8777, zoom: 11 },
@@ -39,9 +44,26 @@ export function HeatmapCard({ municipalId }: HeatmapCardProps) {
   const [filter, setFilter] = useState<'overall' | 'pending' | 'verified'>('overall');
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const heatmapRef = useRef<google.maps.visualization.HeatmapLayer | null>(null);
+  const updateRequestIdRef = useRef(0);
 
   useEffect(() => {
-    loadGoogleMapsScript();
+    let cancelled = false;
+    loadGoogleMapsScript()
+      .then(() => {
+        if (cancelled) return;
+        setIsLoading(false);
+      })
+      .catch((e) => {
+        console.error("Failed to load Google Maps script", e);
+        if (!cancelled) {
+          setError("Failed to load Google Maps");
+          setIsLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -52,71 +74,43 @@ export function HeatmapCard({ municipalId }: HeatmapCardProps) {
     }
   }, [municipalId, isLoading, filter]);
 
-  function loadGoogleMapsScript() {
-    // Check if script already loaded
+  function loadGoogleMapsScript(): Promise<void> {
     if (window.google?.maps?.visualization) {
-      console.log('Google Maps already loaded');
-      setIsLoading(false);
-      if (mapRef.current && !mapInstanceRef.current) {
-        setTimeout(() => initializeMap(), 100);
+      return Promise.resolve();
+    }
+
+    if (googleMapsLoaderPromise) {
+      return googleMapsLoaderPromise;
+    }
+
+    googleMapsLoaderPromise = new Promise<void>((resolve, reject) => {
+      const existingScript = document.getElementById(GOOGLE_MAPS_SCRIPT_ID) as HTMLScriptElement | null;
+      if (existingScript) {
+        existingScript.addEventListener("load", () => resolve(), { once: true });
+        existingScript.addEventListener("error", () => reject(new Error("Google Maps load failed")), { once: true });
+        return;
       }
-      return;
-    }
 
-    // Check if script is already being loaded
-    const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
-    if (existingScript) {
-      console.log('Google Maps script already in DOM, waiting...');
-      // Wait for it to load
-      let attempts = 0;
-      const checkGoogle = setInterval(() => {
-        attempts++;
-        if (window.google?.maps?.visualization) {
-          console.log('Google Maps loaded successfully');
-          clearInterval(checkGoogle);
-          setIsLoading(false);
-          if (mapRef.current && !mapInstanceRef.current) {
-            setTimeout(() => initializeMap(), 100);
-          }
-        } else if (attempts > 50) {
-          // Timeout after 5 seconds
-          console.error('Google Maps loading timeout');
-          clearInterval(checkGoogle);
-          setError("Google Maps loading timeout. Please refresh the page.");
-          setIsLoading(false);
+      const script = document.createElement("script");
+      script.id = GOOGLE_MAPS_SCRIPT_ID;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyBWak1GmJvHzfiRHKnE9_oHAzsuZtwEqrU&libraries=visualization`;
+      script.async = true;
+      script.defer = true;
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error("Google Maps load failed"));
+      document.head.appendChild(script);
+    })
+      .then(() => {
+        if (!window.google?.maps?.visualization) {
+          throw new Error("Google Maps visualization library unavailable");
         }
-      }, 100);
-      return;
-    }
+      })
+      .catch((err) => {
+        googleMapsLoaderPromise = null;
+        throw err;
+      });
 
-    console.log('Loading Google Maps script...');
-    const script = document.createElement("script");
-    script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyBWak1GmJvHzfiRHKnE9_oHAzsuZtwEqrU&libraries=visualization`;
-    script.async = true;
-    script.defer = true;
-    script.onload = () => {
-      console.log('Google Maps script loaded');
-      // Wait a bit for the API to initialize
-      setTimeout(() => {
-        if (window.google?.maps?.visualization) {
-          console.log('Google Maps API ready');
-          setIsLoading(false);
-          if (mapRef.current && !mapInstanceRef.current) {
-            initializeMap();
-          }
-        } else {
-          console.error('Google Maps API not ready after load');
-          setError("Failed to initialize Google Maps");
-          setIsLoading(false);
-        }
-      }, 200);
-    };
-    script.onerror = (e) => {
-      console.error("Failed to load Google Maps script", e);
-      setError("Failed to load Google Maps");
-      setIsLoading(false);
-    };
-    document.head.appendChild(script);
+    return googleMapsLoaderPromise;
   }
 
   function parseCoordinatesFromLocation(location: string): { lat: number; lng: number } | null {
@@ -144,10 +138,14 @@ export function HeatmapCard({ municipalId }: HeatmapCardProps) {
 
   async function fetchComplaintLocations(): Promise<ComplaintLocation[]> {
     try {
-      // Fetch actual complaints from database
-      let complaints = await getComplaintsByMunicipal(municipalId);
-      
-      console.log(`Fetched ${complaints.length} complaints for municipal ${municipalId}`);
+      let complaints: Complaint[] = [];
+      const cached = complaintsCache.get(municipalId);
+      if (cached && Date.now() - cached.ts < COMPLAINTS_CACHE_TTL_MS) {
+        complaints = cached.data;
+      } else {
+        complaints = await getComplaintsByMunicipal(municipalId);
+        complaintsCache.set(municipalId, { ts: Date.now(), data: complaints });
+      }
       
       // Apply filter
       if (filter === 'pending') {
@@ -156,12 +154,8 @@ export function HeatmapCard({ municipalId }: HeatmapCardProps) {
         complaints = complaints.filter(c => c.status === 'verified');
       }
       
-      console.log(`After ${filter} filter: ${complaints.length} complaints`);
-      
       const center = municipalCenters[municipalId] || municipalCenters.mumbai;
       const locations: ComplaintLocation[] = [];
-      let complaintsWithCoords = 0;
-      let complaintsWithoutCoords = 0;
       
       // Create locations from actual complaints with coordinates
       complaints.forEach((complaint) => {
@@ -173,7 +167,6 @@ export function HeatmapCard({ municipalId }: HeatmapCardProps) {
         if (parsedFromLocation) {
           lat = parsedFromLocation.lat;
           lng = parsedFromLocation.lng;
-          console.log(`Complaint ${complaint.id}: Parsed coords from location field (${lat}, ${lng})`);
         }
         
         // Strategy 2: Use latitude/longitude fields if available
@@ -188,7 +181,6 @@ export function HeatmapCard({ municipalId }: HeatmapCardProps) {
               parsedLng >= -180 && parsedLng <= 180) {
             lat = parsedLat;
             lng = parsedLng;
-            console.log(`Complaint ${complaint.id}: Using lat/lng fields (${lat}, ${lng})`);
           }
         }
         
@@ -201,10 +193,6 @@ export function HeatmapCard({ municipalId }: HeatmapCardProps) {
           
           lat = center.lat + latOffset;
           lng = center.lng + lngOffset;
-          complaintsWithoutCoords++;
-          console.log(`Complaint ${complaint.id}: Generated coords around center (${lat}, ${lng})`);
-        } else {
-          complaintsWithCoords++;
         }
         
         // Weight by votes + 1 (so complaints with 0 votes still show)
@@ -230,9 +218,6 @@ export function HeatmapCard({ municipalId }: HeatmapCardProps) {
         }
       });
       
-      console.log(`Heatmap data: ${complaintsWithCoords} complaints with real coords, ${complaintsWithoutCoords} with generated coords`);
-      console.log(`Total heatmap points: ${locations.length}`);
-      
       return locations;
     } catch (error) {
       console.error('Error fetching complaints for heatmap:', error);
@@ -244,7 +229,6 @@ export function HeatmapCard({ municipalId }: HeatmapCardProps) {
   async function initializeMap() {
     if (!mapRef.current || !window.google?.maps) return;
 
-    console.log('Initializing map...');
     const center = municipalCenters[municipalId] || municipalCenters.mumbai;
 
     try {
@@ -261,7 +245,6 @@ export function HeatmapCard({ municipalId }: HeatmapCardProps) {
       });
 
       mapInstanceRef.current = map;
-      console.log('Map initialized');
       await updateHeatmap();
     } catch (err) {
       console.error('Error initializing map:', err);
@@ -272,21 +255,17 @@ export function HeatmapCard({ municipalId }: HeatmapCardProps) {
   async function updateHeatmap() {
     if (!mapInstanceRef.current || !window.google?.maps?.visualization) return;
 
-    console.log('Updating heatmap...');
+    const requestId = ++updateRequestIdRef.current;
     try {
       const locations = await fetchComplaintLocations();
-      
-      console.log(`Found ${locations.length} complaint locations`);
+      if (requestId !== updateRequestIdRef.current) return;
       
       // Remove existing heatmap if any
       if (heatmapRef.current) {
         heatmapRef.current.setMap(null);
       }
 
-      if (locations.length === 0) {
-        console.log('No complaints to display on heatmap');
-        return;
-      }
+      if (locations.length === 0) return;
 
       // Create weighted heatmap data
       const heatmapData = locations.map((loc) => ({
@@ -317,7 +296,6 @@ export function HeatmapCard({ municipalId }: HeatmapCardProps) {
       });
 
       heatmapRef.current = heatmap;
-      console.log('Heatmap updated successfully');
 
       // Recenter map
       const center = municipalCenters[municipalId] || municipalCenters.mumbai;
@@ -343,7 +321,12 @@ export function HeatmapCard({ municipalId }: HeatmapCardProps) {
               onClick={() => {
                 setError(null);
                 setIsLoading(true);
-                loadGoogleMapsScript();
+                loadGoogleMapsScript()
+                  .then(() => setIsLoading(false))
+                  .catch(() => {
+                    setError("Failed to load Google Maps");
+                    setIsLoading(false);
+                  });
               }}
               className="text-sm text-blue-600 hover:underline"
             >

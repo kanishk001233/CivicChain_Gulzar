@@ -1,280 +1,263 @@
+import { useMemo, useState } from "react";
 import { Card } from "./ui/card";
 import { Badge } from "./ui/badge";
-import { HelpCircle, BookOpen, Video, Mail, Phone, MessageCircle, FileQuestion, CheckCircle2, Clock, Shield, Zap, Search } from "lucide-react";
-import { useState } from "react";
+import {
+  HelpCircle,
+  Search,
+  Wrench,
+  Shield,
+  MessageCircle,
+  FileText,
+  Clock,
+  CheckCircle2,
+  AlertTriangle,
+  BarChart3,
+  Phone,
+  Mail,
+} from "lucide-react";
+
+interface FAQ {
+  question: string;
+  answer: string;
+  tags: string[];
+}
+
+const faqs: FAQ[] = [
+  {
+    question: "How do I move a complaint from Pending to Resolved?",
+    answer:
+      "Go to Departments, open the relevant category, click Resolve on the complaint, and upload resolution proof. After submission, it will appear under Resolved or Verified depending on your workflow.",
+    tags: ["departments", "resolve", "complaints"],
+  },
+  {
+    question: "Why is a complaint missing in my department view?",
+    answer:
+      "Check filters first (Pending/Resolved/Verified). Then verify the complaint category matches your selected department. If still missing, refresh data from the dashboard and check linked complaint routing.",
+    tags: ["filters", "department", "missing"],
+  },
+  {
+    question: "What does the performance score represent?",
+    answer:
+      "Performance score combines resolution rate and resolution time. Higher scores indicate better closure quality and speed. Use the leaderboard and detailed table together for accurate interpretation.",
+    tags: ["performance", "score", "analytics"],
+  },
+  {
+    question: "How often does dashboard data update?",
+    answer:
+      "The app updates using realtime subscriptions where available, with periodic fallback refresh in the background. You should not need manual browser refresh in normal operation.",
+    tags: ["realtime", "sync", "refresh"],
+  },
+  {
+    question: "How do I export reports correctly?",
+    answer:
+      "Use Reports page actions (Daily, Weekly, Monthly, Category). Current exports are PDF. If a report appears incorrect, verify current filters and complaint statuses before re-exporting.",
+    tags: ["reports", "export", "pdf"],
+  },
+  {
+    question: "When should municipal teams contact state support?",
+    answer:
+      "Escalate when complaint aging crosses SLA, cross-department dependency blocks closure, or repeated incidents indicate systemic issues requiring state-level intervention.",
+    tags: ["escalation", "sla", "state"],
+  },
+];
+
+const playbooks = [
+  {
+    title: "Complaint Review",
+    icon: Wrench,
+    steps: [
+      "Validate complaint details (location, category, and photo evidence).",
+      "Move valid complaints through verification and resolution workflow quickly.",
+      "If another department is required, create a linked complaint immediately with referral notes.",
+    ],
+    accent: "border-blue-200 bg-blue-50",
+  },
+  {
+    title: "SLA Risk Prevention",
+    icon: AlertTriangle,
+    steps: [
+      "Review high-age pending complaints at start and end of day.",
+      "Escalate blockers with notes and ETA, not just status updates.",
+      "Use performance page to identify slow categories and rebalance workload.",
+    ],
+    accent: "border-amber-200 bg-amber-50",
+  },
+  {
+    title: "Resolution Quality Control",
+    icon: CheckCircle2,
+    steps: [
+      "Attach clear after-resolution photos with location context.",
+      "Confirm status transitions are accurate (Resolved/Verified).",
+      "Capture recurring patterns for preventive action in weekly review.",
+    ],
+    accent: "border-emerald-200 bg-emerald-50",
+  },
+];
 
 export function HelpPage() {
-  const [searchQuery, setSearchQuery] = useState("");
-  
-  const faqs = [
-    {
-      question: "How do I verify a complaint?",
-      answer: "Navigate to Departments, select a category, and click the 'Verify' button on pending complaints after reviewing the details and photo evidence.",
-      category: "Verification",
-    },
-    {
-      question: "What happens when I mark a complaint as resolved?",
-      answer: "You'll be prompted to upload a resolution photo. This photo serves as proof that the issue has been addressed and will be stored in the complaint history.",
-      category: "Resolution",
-    },
-    {
-      question: "How are AI insights generated?",
-      answer: "The AI analyzes historical complaint patterns, seasonal trends, and department performance to provide predictive insights and recommendations.",
-      category: "Analytics",
-    },
-    {
-      question: "Can I export reports?",
-      answer: "Yes! Visit the Reports page to download daily, weekly, or monthly reports in PDF or Excel format. You can also export category-specific reports.",
-      category: "Reports",
-    },
-    {
-      question: "What do the performance scores mean?",
-      answer: "Performance scores (0-100) are calculated based on resolution rate, average resolution time, and complaint volume. 90+ is Excellent, 80-89 is Good, 70-79 is Fair.",
-      category: "Performance",
-    },
-    {
-      question: "How can I upload multiple resolution images?",
-      answer: "When marking a complaint as resolved, you can select multiple images from your device. All images will be displayed in the complaint's resolution gallery.",
-      category: "Resolution",
-    },
-    {
-      question: "What is the complaint heatmap?",
-      answer: "The heatmap on the Performance page shows the geographic distribution of complaints across your municipal area, helping identify hotspots.",
-      category: "Analytics",
-    },
-    {
-      question: "How do I filter complaints by status?",
-      answer: "Use the status tabs at the top of each department page to switch between Pending, Verified, and Resolved complaints.",
-      category: "Navigation",
-    },
-  ];
+  const [query, setQuery] = useState("");
 
-  const resources = [
-    {
-      title: "User Guide",
-      description: "Complete guide to using the municipal dashboard",
-      icon: BookOpen,
-      color: "blue",
-      badge: "PDF",
-    },
-    {
-      title: "Video Tutorials",
-      description: "Step-by-step video walkthroughs",
-      icon: Video,
-      color: "purple",
-      badge: "15 Videos",
-    },
-    {
-      title: "Email Support",
-      description: "support@municipal.gov.in",
-      icon: Mail,
-      color: "green",
-      badge: "24h Response",
-    },
-    {
-      title: "Helpline",
-      description: "1800-XXX-XXXX (24/7)",
-      icon: Phone,
-      color: "amber",
-      badge: "Toll Free",
-    },
-  ];
-
-  const quickLinks = [
-    {
-      title: "Getting Started",
-      description: "Learn the basics of complaint management",
-      icon: Zap,
-      color: "bg-blue-500",
-    },
-    {
-      title: "Best Practices",
-      description: "Tips for efficient complaint resolution",
-      icon: CheckCircle2,
-      color: "bg-green-500",
-    },
-    {
-      title: "Troubleshooting",
-      description: "Common issues and solutions",
-      icon: FileQuestion,
-      color: "bg-amber-500",
-    },
-    {
-      title: "Security & Privacy",
-      description: "Data protection and security guidelines",
-      icon: Shield,
-      color: "bg-purple-500",
-    },
-  ];
-
-  const filteredFaqs = faqs.filter(faq => 
-    searchQuery === "" || 
-    faq.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    faq.answer.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    faq.category.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredFaqs = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return faqs;
+    return faqs.filter(
+      (f) =>
+        f.question.toLowerCase().includes(q) ||
+        f.answer.toLowerCase().includes(q) ||
+        f.tags.some((tag) => tag.toLowerCase().includes(q)),
+    );
+  }, [query]);
 
   return (
-    <div className="p-8 max-w-7xl mx-auto">
-      <div className="mb-8">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
-            <HelpCircle className="w-6 h-6 text-blue-600" />
+    <div className="relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_15%_10%,#f5fbff_0%,#ebf4ff_42%,#edf0ff_100%)] p-8">
+      <div className="pointer-events-none absolute -left-24 -top-24 h-80 w-80 rounded-full bg-cyan-300/35 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-28 right-0 h-96 w-96 rounded-full bg-indigo-300/30 blur-3xl" />
+
+      <div className="relative mb-8">
+        <div className="mb-3 flex items-center gap-3">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-100">
+            <HelpCircle className="h-6 w-6 text-blue-700" />
           </div>
           <div>
-            <h1>Help & Support</h1>
-            <p className="text-gray-600">Get answers to common questions and access support resources</p>
+            <h1 className="text-3xl font-semibold text-slate-900">Help & Support Center</h1>
+            <p className="text-slate-600">Operational guidance for faster resolution and fewer escalations.</p>
           </div>
         </div>
       </div>
 
-      {/* Quick Start Guide */}
-      <Card className="p-8 mb-8 bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 border-2 border-blue-200 shadow-lg">
-        <div className="flex items-center gap-2 mb-6">
-          <Zap className="w-6 h-6 text-blue-600" />
-          <h2>Quick Start Guide</h2>
-          <Badge className="ml-2 bg-blue-600 text-white">New</Badge>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white/80 backdrop-blur p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow border border-blue-100">
-            <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-blue-500 text-white rounded-full flex items-center justify-center mb-4 shadow-md">
-              <span className="text-xl">1</span>
-            </div>
-            <h3 className="mb-2">Review Complaints</h3>
-            <p className="text-sm text-gray-600">Browse complaints by department category and view detailed information including photos and location</p>
+      <div className="relative mb-8 grid grid-cols-1 gap-4 md:grid-cols-4">
+        <Card className="border-blue-200 bg-gradient-to-br from-blue-50 to-blue-100 p-4 shadow-sm">
+          <div className="mb-1 flex items-center justify-between">
+            <span className="text-xs text-slate-600">Core Workflow</span>
+            <Wrench className="h-4 w-4 text-blue-700" />
           </div>
-          <div className="bg-white/80 backdrop-blur p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow border border-purple-100">
-            <div className="w-12 h-12 bg-gradient-to-br from-purple-600 to-purple-500 text-white rounded-full flex items-center justify-center mb-4 shadow-md">
-              <span className="text-xl">2</span>
-            </div>
-            <h3 className="mb-2">Verify & Track</h3>
-            <p className="text-sm text-gray-600">Verify authentic complaints and track their progress through the resolution pipeline</p>
+          <p className="text-sm font-semibold text-slate-900">Submitted {"->"} Verify {"->"} Resolve</p>
+        </Card>
+        <Card className="border-emerald-200 bg-gradient-to-br from-emerald-50 to-emerald-100 p-4 shadow-sm">
+          <div className="mb-1 flex items-center justify-between">
+            <span className="text-xs text-slate-600">Response Target</span>
+            <Clock className="h-4 w-4 text-emerald-700" />
           </div>
-          <div className="bg-white/80 backdrop-blur p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow border border-pink-100">
-            <div className="w-12 h-12 bg-gradient-to-br from-pink-600 to-pink-500 text-white rounded-full flex items-center justify-center mb-4 shadow-md">
-              <span className="text-xl">3</span>
-            </div>
-            <h3 className="mb-2">Resolve with Proof</h3>
-            <p className="text-sm text-gray-600">Mark complaints as resolved and upload photo verification to maintain transparency</p>
+          <p className="text-sm font-semibold text-slate-900">First update within 24h</p>
+        </Card>
+        <Card className="border-amber-200 bg-gradient-to-br from-amber-50 to-amber-100 p-4 shadow-sm">
+          <div className="mb-1 flex items-center justify-between">
+            <span className="text-xs text-slate-600">Escalation Rule</span>
+            <Shield className="h-4 w-4 text-amber-700" />
           </div>
-        </div>
-      </Card>
+          <p className="text-sm font-semibold text-slate-900">SLA risk or dependency block</p>
+        </Card>
+        <Card className="border-indigo-200 bg-gradient-to-br from-indigo-50 to-indigo-100 p-4 shadow-sm">
+          <div className="mb-1 flex items-center justify-between">
+            <span className="text-xs text-slate-600">Reporting</span>
+            <FileText className="h-4 w-4 text-indigo-700" />
+          </div>
+          <p className="text-sm font-semibold text-slate-900">Daily/Weekly/Monthly PDFs</p>
+        </Card>
+      </div>
 
-      {/* Quick Links */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-        {quickLinks.map((link, index) => {
-          const Icon = link.icon;
+      <div className="relative mb-8">
+        <Card className="border-slate-200 bg-white p-4 shadow-md">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search by keyword (SLA, reports, performance, escalation...)"
+              className="h-11 w-full rounded-md border border-slate-300 bg-white pl-10 pr-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+            />
+          </div>
+        </Card>
+      </div>
+
+      <div className="relative mb-8 grid grid-cols-1 gap-6 lg:grid-cols-3">
+        {playbooks.map((playbook) => {
+          const Icon = playbook.icon;
           return (
-            <Card key={index} className="p-5 hover:shadow-lg transition-all cursor-pointer group border-2 hover:border-blue-300">
-              <div className={`w-10 h-10 ${link.color} rounded-lg flex items-center justify-center mb-3 group-hover:scale-110 transition-transform`}>
-                <Icon className="w-5 h-5 text-white" />
+            <Card key={playbook.title} className={`p-5 shadow-sm ${playbook.accent}`}>
+              <div className="mb-3 flex items-center gap-2">
+                <Icon className="h-5 w-5 text-slate-700" />
+                <h3 className="font-semibold text-slate-900">{playbook.title}</h3>
               </div>
-              <h3 className="text-sm mb-1 group-hover:text-blue-600 transition-colors">{link.title}</h3>
-              <p className="text-xs text-gray-600">{link.description}</p>
+              <div className="space-y-2">
+                {playbook.steps.map((step) => (
+                  <div key={step} className="rounded-md bg-white/70 p-2 text-sm text-slate-700">
+                    {step}
+                  </div>
+                ))}
+              </div>
             </Card>
           );
         })}
       </div>
 
-      {/* Search Bar */}
-      <Card className="p-4 mb-8 shadow-md">
-        <div className="relative">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search FAQs by question, answer, or category..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
+      <div className="relative mb-8">
+        <div className="mb-4 flex items-center gap-2">
+          <MessageCircle className="h-5 w-5 text-blue-700" />
+          <h2 className="text-xl font-semibold text-slate-900">Frequently Asked Questions</h2>
+          <Badge variant="outline">{filteredFaqs.length} items</Badge>
         </div>
-      </Card>
 
-      {/* FAQs */}
-      <div className="mb-8">
-        <div className="flex items-center gap-2 mb-6">
-          <MessageCircle className="w-6 h-6 text-blue-600" />
-          <h2>Frequently Asked Questions</h2>
-          <Badge variant="outline" className="ml-2">{filteredFaqs.length} Questions</Badge>
-        </div>
-        <div className="space-y-4">
-          {filteredFaqs.map((faq, index) => (
-            <Card key={index} className="p-6 hover:shadow-lg transition-shadow border-l-4 border-l-blue-500">
-              <div className="flex items-start justify-between gap-4 mb-3">
-                <h3 className="flex items-center gap-2 flex-1">
-                  <HelpCircle className="w-5 h-5 text-blue-600 flex-shrink-0" />
-                  {faq.question}
-                </h3>
-                <Badge variant="outline" className="flex-shrink-0">{faq.category}</Badge>
+        <div className="space-y-3">
+          {filteredFaqs.map((faq) => (
+            <Card key={faq.question} className="border-slate-200 bg-white p-5 shadow-sm">
+              <h3 className="mb-2 font-semibold text-slate-900">{faq.question}</h3>
+              <p className="mb-3 text-sm leading-relaxed text-slate-700">{faq.answer}</p>
+              <div className="flex flex-wrap gap-2">
+                {faq.tags.map((tag) => (
+                  <Badge key={tag} variant="outline" className="text-xs">
+                    {tag}
+                  </Badge>
+                ))}
               </div>
-              <p className="text-gray-600 pl-7 leading-relaxed">{faq.answer}</p>
             </Card>
           ))}
-          
+
           {filteredFaqs.length === 0 && (
-            <Card className="p-12 text-center">
-              <Search className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="mb-2 text-gray-600">No results found</h3>
-              <p className="text-sm text-gray-500">Try searching with different keywords</p>
+            <Card className="border-slate-200 bg-white p-10 text-center shadow-sm">
+              <Search className="mx-auto mb-3 h-8 w-8 text-slate-400" />
+              <p className="font-semibold text-slate-700">No matching help articles</p>
+              <p className="text-sm text-slate-500">Try broader terms like complaint, resolve, report, or SLA.</p>
             </Card>
           )}
         </div>
       </div>
 
-      {/* Contact Support */}
-      <div>
-        <div className="flex items-center gap-2 mb-6">
-          <Phone className="w-6 h-6 text-blue-600" />
-          <h2>Contact Support</h2>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {resources.map((resource, index) => {
-            const Icon = resource.icon;
-            const colorClasses = {
-              blue: { bg: 'bg-blue-100', text: 'text-blue-600', ring: 'ring-blue-200' },
-              purple: { bg: 'bg-purple-100', text: 'text-purple-600', ring: 'ring-purple-200' },
-              green: { bg: 'bg-green-100', text: 'text-green-600', ring: 'ring-green-200' },
-              amber: { bg: 'bg-amber-100', text: 'text-amber-600', ring: 'ring-amber-200' },
-            };
-            const colors = colorClasses[resource.color as keyof typeof colorClasses];
+      <div className="relative grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <Card className="border-slate-200 bg-white p-6 shadow-md">
+          <div className="mb-3 flex items-center gap-2">
+            <BarChart3 className="h-5 w-5 text-indigo-700" />
+            <h3 className="font-semibold text-slate-900">Escalation Checklist</h3>
+          </div>
+          <div className="space-y-2 text-sm text-slate-700">
+            <p>1. Add concise blocker summary and current status.</p>
+            <p>2. Mention actions already attempted by municipal team.</p>
+            <p>3. Include expected support required from state level.</p>
+            <p>4. Provide realistic timeline and accountability owner.</p>
+          </div>
+        </Card>
 
-            return (
-              <Card key={index} className={`p-6 hover:shadow-xl transition-all cursor-pointer group border-2 hover:${colors.ring} hover:ring-4`}>
-                <div className={`w-14 h-14 ${colors.bg} rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-sm`}>
-                  <Icon className={`w-7 h-7 ${colors.text}`} />
-                </div>
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="group-hover:text-blue-600 transition-colors">{resource.title}</h3>
-                  {resource.badge && (
-                    <Badge variant="outline" className="text-xs">{resource.badge}</Badge>
-                  )}
-                </div>
-                <p className="text-sm text-gray-600">{resource.description}</p>
-              </Card>
-            );
-          })}
-        </div>
+        <Card className="border-slate-200 bg-white p-6 shadow-md">
+          <div className="mb-3 flex items-center gap-2">
+            <Phone className="h-5 w-5 text-blue-700" />
+            <h3 className="font-semibold text-slate-900">Contact Support</h3>
+          </div>
+          <div className="space-y-3 text-sm text-slate-700">
+            <div className="flex items-center gap-2">
+              <Mail className="h-4 w-4 text-slate-500" />
+              <span>support@civicchain.gov</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Phone className="h-4 w-4 text-slate-500" />
+              <span>1800-123-8899 (24x7)</span>
+            </div>
+            <div className="rounded-md border border-blue-200 bg-blue-50 p-3 text-xs text-blue-900">
+              For urgent production issues, include: municipal ID, affected module, error text, and timestamp.
+            </div>
+          </div>
+        </Card>
       </div>
-
-      
-
-      {/* Still Need Help */}
-      <Card className="p-8 mt-8 bg-gradient-to-r from-blue-600 to-purple-600 text-white text-center shadow-xl">
-        <h2 className="mb-3 text-white">Still need help?</h2>
-        <p className="text-blue-100 mb-6 max-w-2xl mx-auto">
-          Our support team is available 24/7 to assist you with any questions or issues
-        </p>
-        <div className="flex items-center justify-center gap-4 flex-wrap">
-          <button className="px-6 py-3 bg-white text-blue-600 rounded-lg hover:bg-blue-50 transition-colors shadow-md flex items-center gap-2">
-            <MessageCircle className="w-5 h-5" />
-            Start Live Chat
-          </button>
-          <button className="px-6 py-3 bg-blue-700 text-white rounded-lg hover:bg-blue-800 transition-colors shadow-md flex items-center gap-2 border border-blue-400">
-            <Mail className="w-5 h-5" />
-            Email Support
-          </button>
-        </div>
-      </Card>
     </div>
   );
 }
