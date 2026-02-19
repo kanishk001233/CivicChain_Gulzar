@@ -25,7 +25,7 @@ import {
 import { useState, useEffect } from "react";
 import * as api from "../utils/api";
 import { Button } from "./ui/button";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 import {
   BarChart,
   Bar,

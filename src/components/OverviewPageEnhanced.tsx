@@ -20,6 +20,15 @@ import {
 } from "lucide-react";
 // import { categories } from "../data/dummyData";
 
+const CATEGORY_META: Record<string, { name: string; icon: string }> = {
+  roads: { name: "Roads & Potholes", icon: "🛣️" },
+  waste: { name: "Waste / Garbage", icon: "🗑️" },
+  streetlights: { name: "Streetlights", icon: "💡" },
+  water: { name: "Water Supply", icon: "💧" },
+  sewage: { name: "Sewage", icon: "🚰" },
+  others: { name: "Others", icon: "📋" },
+};
+
 interface Complaint {
   id: number;
   category: string;
@@ -93,12 +102,27 @@ export function OverviewPageEnhanced({ complaints, loading }: OverviewPageProps)
       }, 0) / resolvedWithDates.length)
     : 0;
 
-  // Get top categories
-  const categoryCounts = categories.map(cat => ({
-    ...cat,
-    count: complaints.filter(c => c.category === cat.id).length,
-    pending: complaints.filter(c => c.category === cat.id && c.status === 'pending').length,
-  })).sort((a, b) => b.count - a.count);
+  // Get top categories from live complaints data (no external dummy categories dependency)
+  const categoryCounts = Object.entries(
+    complaints.reduce<Record<string, { count: number; pending: number }>>((acc, complaint) => {
+      if (!acc[complaint.category]) {
+        acc[complaint.category] = { count: 0, pending: 0 };
+      }
+      acc[complaint.category].count += 1;
+      if (complaint.status === "pending") {
+        acc[complaint.category].pending += 1;
+      }
+      return acc;
+    }, {}),
+  )
+    .map(([id, stats]) => ({
+      id,
+      name: CATEGORY_META[id]?.name || id,
+      icon: CATEGORY_META[id]?.icon || "📌",
+      count: stats.count,
+      pending: stats.pending,
+    }))
+    .sort((a, b) => b.count - a.count);
 
   return (
     <div className="p-8 bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50 min-h-screen">

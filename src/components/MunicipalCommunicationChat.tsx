@@ -13,7 +13,7 @@ import {
   Eye,
 } from 'lucide-react';
 import * as api from '../utils/api';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 
 interface MunicipalCommunicationChatProps {
   stateId: string;

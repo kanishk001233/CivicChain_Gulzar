@@ -21,12 +21,10 @@ import {
 import { useState, useEffect } from "react";
 import { 
   getMonthlyTrends, 
-  MonthlyTrend, 
   getAnalyticsData, 
-  AnalyticsData, 
   getComplaintStats, 
-  ComplaintStats 
 } from "../utils/api";
+import type { MonthlyTrend, AnalyticsData, ComplaintStats } from "../utils/api";
 import {
   BarChart,
   Bar,

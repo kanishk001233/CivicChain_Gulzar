@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Button } from "./ui/button";
 import { Label } from "./ui/label";
 import { Upload, CheckCircle, X, AlertCircle } from "lucide-react";
-import { ImageWithFallback } from "./figma/ImageWithFallback";
+import { ImageWithFallback } from "./image/ImageWithFallback";
 // import { createClient } from "../utils/supabase/client";
 import { toast } from "sonner";
 

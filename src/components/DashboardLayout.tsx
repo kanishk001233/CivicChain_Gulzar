@@ -14,7 +14,6 @@ export function DashboardLayout({ children, currentPage, onNavigate, onLogout, m
   const menuItems = [
     { id: 'overview', label: 'Overview', icon: Home },
     { id: 'departments', label: 'Departments', icon: LayoutDashboard },
-    { id: 'ai-insights', label: 'AI Models', icon: Brain },
     { id: 'performance', label: 'Performance', icon: Award },
     { id: 'reports', label: 'Reports', icon: FileText },
     { id: 'help', label: 'Help & Support', icon: HelpCircle },

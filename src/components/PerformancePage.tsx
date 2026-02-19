@@ -3,7 +3,8 @@ import { Progress } from "./ui/progress";
 import { Badge } from "./ui/badge";
 import { Trophy, TrendingUp, Clock, CheckCircle } from "lucide-react";
 import { useState, useEffect } from "react";
-import { getDepartmentPerformance, DepartmentPerformance } from "../utils/api";
+import { getDepartmentPerformance } from "../utils/api";
+import type { DepartmentPerformance } from "../utils/api";
 import { HeatmapCard } from "./HeatmapCard";
 
 interface PerformancePageProps {

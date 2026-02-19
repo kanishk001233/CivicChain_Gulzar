@@ -3,7 +3,7 @@ import { Card } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { ComplaintCard } from "./ComplaintCard";
-import { ComplaintDetailsDialog } from "./ComplaintDetailsDialog";
+// import { ComplaintDetailsDialog } from "./ComplaintDetailsDialog";
 import { ArrowLeft, Loader2, AlertCircle, CheckCircle, Clock } from "lucide-react";
 import { Button } from "./ui/button";
 import * as api from "../utils/api";
@@ -249,11 +249,11 @@ export function DepartmentsPage({ complaints, onResolve, loading, selectedCompla
           </Tabs>
         </div>
         
-        <ComplaintDetailsDialog
+        {/* <ComplaintDetailsDialog
           complaint={selectedComplaint}
           open={!!selectedComplaint}
           onClose={() => setSelectedComplaint(null)}
-        />
+        /> */}
       </>
     );
   }
@@ -340,13 +340,13 @@ export function DepartmentsPage({ complaints, onResolve, loading, selectedCompla
       </div>
 
       {/* Complaint Details Dialog */}
-      {selectedComplaint && (
+      {/* {selectedComplaint && (
         <ComplaintDetailsDialog
           isOpen={!!selectedComplaint}
           onClose={() => setSelectedComplaint(null)}
           complaint={selectedComplaint}
         />
-      )}
+      )} */}
     </div>
   );
 }

@@ -3,7 +3,7 @@ import { Card } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { MapPin, ThumbsUp, Calendar, CheckCircle, Users, Link2, Building2 } from "lucide-react";
-import { ImageWithFallback } from "./figma/ImageWithFallback";
+import { ImageWithFallback } from "./image/ImageWithFallback";
 import { ResolveDialog } from "./ResolveDialog";
 
 interface Complaint {
