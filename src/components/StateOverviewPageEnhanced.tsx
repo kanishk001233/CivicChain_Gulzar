@@ -20,13 +20,13 @@ import {
   Building2,
   AlertCircle,
   MessageSquare,
-  CheckCircle2,
 } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import * as api from "../utils/api";
 import { Button } from "./ui/button";
 import { toast } from "sonner";
 import { createClient } from "../utils/supabase/client";
+import { ComplaintDetailsDialog } from "./CompaintDetailDialog";
 import {
   BarChart,
   Bar,
@@ -69,6 +69,7 @@ export function StateOverviewPageEnhanced({
   const [historicalTrends, setHistoricalTrends] = useState<api.YearlyTrend[]>([]);
   const [forecast, setForecast] = useState<api.CategoryForecast[]>([]);
   const [escalatedComplaints, setEscalatedComplaints] = useState<api.EscalatedComplaint[]>([]);
+  const [selectedEscalatedComplaint, setSelectedEscalatedComplaint] = useState<api.EscalatedComplaint | null>(null);
 
   const loadStateData = useCallback(async (silent: boolean = false) => {
     try {
@@ -241,30 +242,6 @@ ${stateName} State Administration`;
     }
   };
 
-  const handleMarkResolved = async (complaint: api.EscalatedComplaint) => {
-    setActionLoading(complaint.id);
-    try {
-      await api.resolveComplaintByState(complaint.id, `Resolved by ${stateName} State Administration`);
-      
-      // Remove from escalated list
-      setEscalatedComplaints(prev => prev.filter(c => c.id !== complaint.id));
-      
-      // Refresh full state dashboard so all widgets stay in sync.
-      loadStateData(true);
-
-      toast.success('Complaint marked as resolved', {
-        description: `Complaint #${complaint.id} has been resolved at state level`,
-      });
-    } catch (error) {
-      console.error('Error resolving complaint:', error);
-      toast.error('Failed to resolve complaint', {
-        description: 'Please try again or contact support',
-      });
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
   if (loading || !stateStats) {
     return (
       <div className="p-8 flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
@@ -299,6 +276,26 @@ ${stateName} State Administration`;
     colors.purple,
     colors.danger,
   ];
+
+  const formatDays = (value: number, decimals: number = 1) => {
+    const safeValue = Number.isFinite(value) ? value : 0;
+    return Math.max(0, safeValue).toFixed(decimals);
+  };
+
+  const dialogComplaint = selectedEscalatedComplaint
+    ? {
+        id: selectedEscalatedComplaint.id,
+        category: selectedEscalatedComplaint.categoryName || selectedEscalatedComplaint.category,
+        title: selectedEscalatedComplaint.title,
+        description: selectedEscalatedComplaint.description,
+        location: selectedEscalatedComplaint.location,
+        votes: selectedEscalatedComplaint.votes,
+        submittedDate: selectedEscalatedComplaint.submittedDate,
+        status: (selectedEscalatedComplaint.status || "pending") as "pending" | "resolved" | "verified",
+        photo: selectedEscalatedComplaint.photo,
+        daysPending: selectedEscalatedComplaint.daysPending,
+      }
+    : null;
 
   return (
     <div className="p-8 bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 min-h-screen">
@@ -356,8 +353,11 @@ ${stateName} State Administration`;
             <Card className="relative overflow-hidden bg-gradient-to-br from-blue-500 to-blue-700 text-white shadow-2xl">
               <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-10 rounded-full -mr-16 -mt-16"></div>
               <div className="p-6 relative">
-                <div className="w-14 h-14 bg-white bg-opacity-20 rounded-xl flex items-center justify-center mb-4">
-                  <Activity className="w-7 h-7 text-white" />
+                <div
+                  className="w-14 h-14 rounded-xl flex items-center justify-center mb-4 shadow-inner"
+                  style={{ backgroundColor: "rgba(255, 255, 255, 0.2)" }}
+                >
+                  <Activity className="w-7 h-7 text-white drop-shadow-sm" />
                 </div>
                 <div className="text-4xl mb-2">{stateStats.totalComplaints.toLocaleString()}</div>
                 <div className="text-sm text-blue-100">Total Complaints</div>
@@ -367,8 +367,11 @@ ${stateName} State Administration`;
             <Card className="relative overflow-hidden bg-gradient-to-br from-green-500 to-green-700 text-white shadow-2xl">
               <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-10 rounded-full -mr-16 -mt-16"></div>
               <div className="p-6 relative">
-                <div className="w-14 h-14 bg-white bg-opacity-20 rounded-xl flex items-center justify-center mb-4">
-                  <CheckCircle className="w-7 h-7 text-white" />
+                <div
+                  className="w-14 h-14 rounded-xl flex items-center justify-center mb-4 shadow-inner"
+                  style={{ backgroundColor: "rgba(255, 255, 255, 0.2)" }}
+                >
+                  <CheckCircle className="w-7 h-7 text-white drop-shadow-sm" />
                 </div>
                 <div className="text-4xl mb-2">{stateStats.resolved.toLocaleString()}</div>
                 <div className="text-sm text-green-100">Resolved</div>
@@ -378,8 +381,11 @@ ${stateName} State Administration`;
             <Card className="relative overflow-hidden bg-gradient-to-br from-orange-500 to-orange-700 text-white shadow-2xl">
               <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-10 rounded-full -mr-16 -mt-16"></div>
               <div className="p-6 relative">
-                <div className="w-14 h-14 bg-white bg-opacity-20 rounded-xl flex items-center justify-center mb-4">
-                  <Clock className="w-7 h-7 text-white" />
+                <div
+                  className="w-14 h-14 rounded-xl flex items-center justify-center mb-4 shadow-inner"
+                  style={{ backgroundColor: "rgba(255, 255, 255, 0.2)" }}
+                >
+                  <Clock className="w-7 h-7 text-white drop-shadow-sm" />
                 </div>
                 <div className="text-4xl mb-2">{stateStats.pending.toLocaleString()}</div>
                 <div className="text-sm text-orange-100">Pending</div>
@@ -389,10 +395,13 @@ ${stateName} State Administration`;
             <Card className="relative overflow-hidden bg-gradient-to-br from-purple-500 to-purple-700 text-white shadow-2xl">
               <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-10 rounded-full -mr-16 -mt-16"></div>
               <div className="p-6 relative">
-                <div className="w-14 h-14 bg-white bg-opacity-20 rounded-xl flex items-center justify-center mb-4">
-                  <Activity className="w-7 h-7 text-white" />
+                <div
+                  className="w-14 h-14 rounded-xl flex items-center justify-center mb-4 shadow-inner"
+                  style={{ backgroundColor: "rgba(255, 255, 255, 0.2)" }}
+                >
+                  <Activity className="w-7 h-7 text-white drop-shadow-sm" />
                 </div>
-                <div className="text-4xl mb-2">{avgResolutionTime.toFixed(1)}</div>
+                <div className="text-4xl mb-2">{formatDays(avgResolutionTime)}</div>
                 <div className="text-sm text-purple-100">Avg Days</div>
               </div>
             </Card>
@@ -400,8 +409,11 @@ ${stateName} State Administration`;
             <Card className="relative overflow-hidden bg-gradient-to-br from-cyan-500 to-cyan-700 text-white shadow-2xl">
               <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-10 rounded-full -mr-16 -mt-16"></div>
               <div className="p-6 relative">
-                <div className="w-14 h-14 bg-white bg-opacity-20 rounded-xl flex items-center justify-center mb-4">
-                  <Award className="w-7 h-7 text-white" />
+                <div
+                  className="w-14 h-14 rounded-xl flex items-center justify-center mb-4 shadow-inner"
+                  style={{ backgroundColor: "rgba(255, 255, 255, 0.2)" }}
+                >
+                  <Award className="w-7 h-7 text-white drop-shadow-sm" />
                 </div>
                 <div className="text-4xl mb-2">{avgPerformance.toFixed(0)}%</div>
                 <div className="text-sm text-cyan-100">Avg Performance</div>
@@ -464,7 +476,7 @@ ${stateName} State Administration`;
                       </div>
                       <div className="flex justify-between text-xs">
                         <span className="text-gray-600">Avg Days</span>
-                        <span className="font-semibold">{municipal.avgResolutionTime.toFixed(1)}</span>
+                        <span className="font-semibold">{formatDays(municipal.avgResolutionTime)}</span>
                       </div>
                     </div>
                   </div>
@@ -492,7 +504,7 @@ ${stateName} State Administration`;
                       <div className="flex-1">
                         <div className="text-sm">{municipal.municipalName}</div>
                         <div className="text-xs text-gray-600">
-                          {municipal.score}% • {municipal.avgResolutionTime.toFixed(1)} days
+                          {municipal.score}% • {formatDays(municipal.avgResolutionTime)} days
                         </div>
                       </div>
                     </div>
@@ -607,7 +619,7 @@ ${stateName} State Administration`;
                               : "bg-orange-100 text-orange-800"
                           } border-0`}
                         >
-                          {municipal.avgResolutionTime.toFixed(1)} days
+                          {formatDays(municipal.avgResolutionTime)} days
                         </Badge>
                       </td>
                       <td className="p-4 text-right">
@@ -734,16 +746,16 @@ ${stateName} State Administration`;
                         </td>
                         <td className="p-4 text-right">
                           <Badge className="bg-blue-100 text-blue-800 border-0">
-                            {dept.statewideAvg.toFixed(1)} days
+                            {formatDays(dept.statewideAvg)} days
                           </Badge>
                         </td>
                         <td className="p-4">
                           <div className="text-sm text-red-600">{dept.worstMunicipal}</div>
-                          <div className="text-xs text-gray-500">{dept.worstMunicipalAvg.toFixed(1)} days</div>
+                          <div className="text-xs text-gray-500">{formatDays(dept.worstMunicipalAvg)} days</div>
                         </td>
                         <td className="p-4">
                           <div className="text-sm text-green-600">{dept.bestMunicipal}</div>
-                          <div className="text-xs text-gray-500">{dept.bestMunicipalAvg.toFixed(1)} days</div>
+                          <div className="text-xs text-gray-500">{formatDays(dept.bestMunicipalAvg)} days</div>
                         </td>
                         <td className="p-4 text-right text-sm">
                           {dept.totalComplaints.toLocaleString()}
@@ -850,67 +862,67 @@ ${stateName} State Administration`;
                   {escalatedComplaints.map((complaint) => (
                     <div
                       key={complaint.id}
-                      className="p-5 bg-gradient-to-r from-red-50 to-orange-50 rounded-xl border-2 border-red-200 hover:shadow-lg transition-all"
+                      className="group cursor-pointer rounded-2xl border border-red-100 bg-white p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-red-200 hover:shadow-md"
+                      onClick={() => setSelectedEscalatedComplaint(complaint)}
                     >
-                      <div className="flex items-start gap-4">
+                      <div className="flex flex-col gap-5 md:flex-row md:items-start gap-3">
                         {/* Image */}
                         {complaint.photo && (
-                          <div className="w-24 h-24 rounded-lg overflow-hidden flex-shrink-0 border-2 border-red-300">
+                          <div className="h-28 w-38 overflow-hidden rounded-xl border border-red-100 bg-red-50 shadow-sm md:mr-1">
                             <img
                               src={complaint.photo}
                               alt={complaint.title}
-                              className="w-full h-full object-cover"
+                              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                             />
                           </div>
                         )}
 
                         {/* Content */}
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between mb-2">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-2">
-                                <Badge className="bg-red-600 text-white border-0">
-                                  #{complaint.id}
-                                </Badge>
-                                <Badge className="bg-orange-600 text-white border-0">
-                                  {complaint.categoryName}
-                                </Badge>
-                                <Badge className="bg-purple-100 text-purple-800 border-0">
-                                  <Clock className="w-3 h-3 mr-1" />
-                                  {complaint.daysPending} days pending
-                                </Badge>
-                              </div>
-                              <h4 className="text-lg mb-2">{complaint.title}</h4>
-                              <p className="text-sm text-gray-700 mb-3 line-clamp-2">
-                                {complaint.description}
-                              </p>
-                            </div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Badge className="bg-red-600 text-white border-0">
+                              #{complaint.id}
+                            </Badge>
+                            <Badge className="bg-orange-100 text-orange-800 border-0">
+                              {complaint.categoryName}
+                            </Badge>
+                            <Badge className="bg-purple-100 text-purple-800 border-0">
+                              <Clock className="w-3 h-3 mr-1" />
+                              {complaint.daysPending} days pending
+                            </Badge>
                           </div>
 
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-3 border-t border-red-200">
-                            <div>
-                              <div className="text-xs text-gray-600 mb-1">Municipal</div>
-                              <div className="text-sm flex items-center gap-1">
+                          <div className="mt-3">
+                            <h4 className="text-xl text-slate-900">{complaint.title}</h4>
+                            <p className="mt-1 text-sm text-slate-600 line-clamp-2">
+                              {complaint.description || "No description provided."}
+                            </p>
+                          </div>
+
+                          <div className="mt-4 grid gap-3 border-t border-slate-100 pt-4 md:grid-cols-4">
+                            <div className="rounded-lg bg-slate-50 p-3">
+                              <div className="text-xs text-slate-500">Municipal</div>
+                              <div className="mt-1 text-sm text-slate-800 flex items-center gap-1">
                                 <Building2 className="w-3 h-3 text-blue-600" />
-                                {complaint.municipalName}
+                                <span className="truncate">{complaint.municipalName}</span>
                               </div>
                             </div>
-                            <div>
-                              <div className="text-xs text-gray-600 mb-1">Location</div>
-                              <div className="text-sm flex items-center gap-1">
+                            <div className="rounded-lg bg-slate-50 p-3">
+                              <div className="text-xs text-slate-500">Location</div>
+                              <div className="mt-1 text-sm text-slate-800 flex items-center gap-1">
                                 <MapPin className="w-3 h-3 text-red-600" />
-                                {complaint.location}
+                                <span className="truncate">{complaint.location || "Location unavailable"}</span>
                               </div>
                             </div>
-                            <div>
-                              <div className="text-xs text-gray-600 mb-1">Submitted</div>
-                              <div className="text-sm">
+                            <div className="rounded-lg bg-slate-50 p-3">
+                              <div className="text-xs text-slate-500">Submitted</div>
+                              <div className="mt-1 text-sm text-slate-800">
                                 {new Date(complaint.submittedDate).toLocaleDateString()}
                               </div>
                             </div>
-                            <div>
-                              <div className="text-xs text-gray-600 mb-1">Community Votes</div>
-                              <div className="text-sm flex items-center gap-1">
+                            <div className="rounded-lg bg-slate-50 p-3">
+                              <div className="text-xs text-slate-500">Community Votes</div>
+                              <div className="mt-1 text-sm text-slate-800 flex items-center gap-1">
                                 <TrendingUp className="w-3 h-3 text-green-600" />
                                 {complaint.votes} votes
                               </div>
@@ -918,10 +930,10 @@ ${stateName} State Administration`;
                           </div>
 
                           {/* Escalation Warning */}
-                          <div className="mt-3 p-3 bg-red-100 border border-red-300 rounded-lg">
+                          <div className="mt-4 rounded-xl border border-red-100 bg-red-50/60 p-3">
                             <div className="flex items-start gap-2">
-                              <AlertTriangle className="w-4 h-4 text-red-600 mt-0.5 flex-shrink-0" />
-                              <div className="text-xs text-red-800">
+                              <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-red-600" />
+                              <div className="text-xs text-red-700">
                                 <span className="font-semibold">Auto-escalated to State:</span> This complaint has exceeded
                                 the 30-day resolution SLA. Municipal intervention has been insufficient. State-level action
                                 may be required to ensure timely resolution.
@@ -930,11 +942,14 @@ ${stateName} State Administration`;
                           </div>
 
                           {/* Action Buttons */}
-                          <div className="mt-4 flex items-center gap-3">
+                          <div className="mt-4 flex items-center">
                             <Button
-                              onClick={() => handleSeekExplanation(complaint)}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                handleSeekExplanation(complaint);
+                              }}
                               disabled={actionLoading === complaint.id}
-                              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+                              className="w-full rounded-xl bg-blue-600 text-white shadow-sm hover:bg-blue-700"
                             >
                               {actionLoading === complaint.id ? (
                                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -942,18 +957,6 @@ ${stateName} State Administration`;
                                 <MessageSquare className="w-4 h-4 mr-2" />
                               )}
                               Seek Explanation
-                            </Button>
-                            <Button
-                              onClick={() => handleMarkResolved(complaint)}
-                              disabled={actionLoading === complaint.id}
-                              className="flex-1 bg-green-600 hover:bg-green-700 text-white"
-                            >
-                              {actionLoading === complaint.id ? (
-                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                              ) : (
-                                <CheckCircle2 className="w-4 h-4 mr-2" />
-                              )}
-                              Mark Resolved
                             </Button>
                           </div>
                         </div>
@@ -1144,7 +1147,7 @@ ${stateName} State Administration`;
                           </Badge>
                         </td>
                         <td className="p-4 text-right">{municipal.resolutionRate.toFixed(1)}%</td>
-                        <td className="p-4 text-right">{municipal.avgResolutionTime.toFixed(1)} days</td>
+                        <td className="p-4 text-right">{formatDays(municipal.avgResolutionTime)} days</td>
                         <td className="p-4 text-center">
                           <Badge
                             className={`${
@@ -1192,6 +1195,11 @@ ${stateName} State Administration`;
         </div>
       )}
 
+      <ComplaintDetailsDialog
+        complaint={dialogComplaint}
+        open={!!dialogComplaint}
+        onClose={() => setSelectedEscalatedComplaint(null)}
+      />
     </div>
   );
 }

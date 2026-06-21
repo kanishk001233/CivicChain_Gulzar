@@ -28,13 +28,14 @@ const municipalCenters: Record<string, { lat: number; lng: number; zoom: number 
   bangalore: { lat: 12.9716, lng: 77.5946, zoom: 11 },
   mysore: { lat: 12.2958, lng: 76.6394, zoom: 12 },
   hubli: { lat: 15.3647, lng: 75.1240, zoom: 12 },
+  sas_nagar: { lat: 30.7046, lng: 76.7179, zoom: 12 },
   ndmc: { lat: 28.6139, lng: 77.2090, zoom: 12 },
   sdmc: { lat: 28.5355, lng: 77.2495, zoom: 12 },
   edmc: { lat: 28.6692, lng: 77.3054, zoom: 12 },
   ahmedabad: { lat: 23.0225, lng: 72.5714, zoom: 11 },
   surat: { lat: 21.1702, lng: 72.8311, zoom: 12 },
   vadodara: { lat: 22.3072, lng: 73.1812, zoom: 12 },
-  ludhiana: { lat: 30.9010, lng: 75.8573, zoom: 12 },
+  ludhiana: { lat: 30.9010, lng: 75.8573, zoom: 10},
 };
 
 export function HeatmapCard({ municipalId }: HeatmapCardProps) {

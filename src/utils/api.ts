@@ -133,26 +133,10 @@ export async function resolveComplaint(complaintId: number, imageUrl: string, of
 }
 
 export async function resolveComplaintByState(complaintId: number, notes?: string) {
-  // For state-level resolution without image requirement
-  const { createClient } = await import('./supabase/client');
-  const supabase = createClient();
-
-  const { data, error } = await supabase
-    .from('complaints')
-    .update({
-      status: 'resolved',
-      resolved_date: new Date().toISOString(),
-      resolved_by: notes || 'State Administration',
-    })
-    .eq('id', complaintId)
-    .select()
-    .single();
-
-  if (error) {
-    throw new Error(`Failed to resolve complaint: ${error.message}`);
-  }
-
-  return data;
+  return fetchAPI(`/complaints/${complaintId}/resolve-state`, {
+    method: 'PUT',
+    body: JSON.stringify({ notes }),
+  });
 }
 
 export async function addCitizenVerification(

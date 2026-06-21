@@ -474,7 +474,7 @@ export default function App() {
               <span className="px-3 py-1 rounded-full bg-blue-50 text-blue-700 text-sm border border-blue-100">{stateId}</span>
               <button
                 onClick={handleLogout}
-                className="px-4 py-2 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-100 transition"
+                className="state-logout-btn"
               >
                 Logout
               </button>

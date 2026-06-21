@@ -4191,3 +4191,20 @@ html {
   --glow-color: rgba(22, 163, 74, 0.55);
   --glow-color-soft: rgba(22, 163, 74, 0.3);
 }
+/* Shared logout button style */
+.state-logout-btn {
+  border: 1px solid #fecaca;
+  background-color: #fef2f2;
+  color: #b91c1c;
+  border-radius: 0.5rem;
+  padding: 0.5rem 1rem;
+  transition: background-color 180ms ease, color 180ms ease, border-color 180ms ease, transform 180ms ease, box-shadow 180ms ease;
+}
+
+.state-logout-btn:hover {
+  background-color: #dc2626;
+  border-color: #dc2626;
+  color: #fff;
+  transform: scale(1.04);
+  box-shadow: 0 6px 14px rgba(220, 38, 38, 0.25);
+}

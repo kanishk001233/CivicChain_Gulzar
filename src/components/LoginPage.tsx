@@ -6,8 +6,7 @@ import { Input } from "./ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Building2, Shield, ChevronRight, Lock, Loader2, ArrowLeft } from "lucide-react";
 import * as api from "../utils/api";
-
-const LOGO_SRC = "/assets/ChatGPT Image Feb 19, 2026, 10_08_07 PM.png";
+import logo from "../assets/ChatGPT Image Feb 19, 2026, 10_08_07 PM.png";
 let statesCache: api.State[] | null = null;
 let statesRequest: Promise<api.State[]> | null = null;
 const municipalsCache = new Map<string, api.Municipal[]>();
@@ -32,13 +31,13 @@ function HeaderIcon({ type }: { type: "municipal" | "state" | "main" }) {
   if (type === "main") {
     return (
       <div className="mb-5 inline-flex h-20 w-20 items-center justify-center overflow-hidden rounded-full bg-[#062e63] shadow-[0_14px_28px_-8px_rgba(2,16,48,0.95)]">
-        <img src={LOGO_SRC} alt="CivicChain logo" className="h-full w-full object-cover" />
+        <img src={logo} alt="Logo" className="h-full w-full object-cover" />
       </div>
     );
   }
   return (
     <div className="mb-5 inline-flex h-20 w-20 items-center justify-center overflow-hidden rounded-full bg-[#062e63] shadow-[0_14px_28px_-8px_rgba(2,16,48,0.95)]">
-      <img src={LOGO_SRC} alt="CivicChain logo" className="h-full w-full object-cover" />
+      <img src={logo} alt="Logo" className="h-full w-full object-cover" />
     </div>
   );
 }

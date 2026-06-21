@@ -447,6 +447,36 @@ app.put('/make-server-60aaff80/complaints/:id/resolve', async (c) => {
   }
 });
 
+// State-level resolution without image requirement
+app.put('/make-server-60aaff80/complaints/:id/resolve-state', async (c) => {
+  try {
+    const id = parseInt(c.req.param('id'));
+    const { notes } = await c.req.json();
+
+    const now = new Date().toISOString();
+
+    const { error: complaintError } = await supabase
+      .from('complaints')
+      .update({
+        status: 'resolved',
+        resolved_date: now,
+        resolved_by: notes || 'State Administration',
+        updated_at: now,
+      })
+      .eq('id', id);
+
+    if (complaintError) {
+      console.error('Error resolving complaint by state:', complaintError);
+      return c.json({ error: 'Failed to resolve complaint' }, 500);
+    }
+
+    return c.json({ success: true });
+  } catch (error) {
+    console.error('Error resolving complaint by state:', error);
+    return c.json({ error: String(error) }, 500);
+  }
+});
+
 // ============================================
 // STATS ROUTES
 // ============================================
