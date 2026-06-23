@@ -144,8 +144,9 @@ export function MunicipalCommunicationChat({
   if (!isOpen) {
     return (
       <button
+        aria-label="Open state communication"
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full shadow-2xl flex items-center justify-center hover:scale-110 transition-transform z-50"
+        className="municipal-chat-launcher fixed bottom-6 right-6 w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full shadow-2xl flex items-center justify-center hover:scale-110 transition-transform z-50"
       >
         <MessageCircle className="w-7 h-7 text-white" />
         {unreadCount > 0 && (
@@ -159,7 +160,7 @@ export function MunicipalCommunicationChat({
 
   if (isMinimized) {
     return (
-      <div className="fixed bottom-6 right-6 z-50">
+      <div className="municipal-chat-minimized fixed bottom-6 right-6 z-50">
         <button
           onClick={() => setIsMinimized(false)}
           className="bg-gradient-to-r from-blue-600 to-purple-600 px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 hover:scale-105 transition-transform"
@@ -175,7 +176,7 @@ export function MunicipalCommunicationChat({
   }
 
   return (
-    <div className="fixed bottom-6 right-6 w-96 h-[600px] z-50 flex flex-col">
+    <div className="municipal-chat-panel fixed bottom-6 right-6 w-96 h-[600px] z-50 flex flex-col">
       <Card className="flex-1 flex flex-col shadow-2xl border-2 border-gray-200 overflow-hidden">
         {/* Header */}
         <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-4 flex items-center justify-between">

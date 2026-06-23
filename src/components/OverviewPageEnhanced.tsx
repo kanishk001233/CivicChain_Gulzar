@@ -142,7 +142,7 @@ export function OverviewPageEnhanced({ complaints, loading, onOpenCategory }: Ov
       </div>
 
       {/* Main Stats Cards - Enhanced Design */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className="mobile-stat-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         {/* Total Complaints */}
         <Card className="glow-card glow-blue relative overflow-hidden bg-gradient-to-br from-blue-500 to-blue-700 text-white shadow-2xl hover:shadow-3xl transition-all transform hover:-translate-y-1">
           <div className="absolute top-0 right-0 w-40 h-40 bg-white opacity-10 rounded-full -mr-20 -mt-20"></div>

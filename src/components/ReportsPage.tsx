@@ -162,7 +162,7 @@ export function ReportsPage({ complaints, loading, municipalName = 'Municipal Co
       </div>
 
       {/* Summary Stats */}
-      <div className="relative mb-8 grid grid-cols-1 gap-6 md:grid-cols-4">
+      <div className="mobile-stat-grid relative mb-8 grid grid-cols-1 gap-6 md:grid-cols-4">
         <Card className="border-blue-200 bg-gradient-to-br from-blue-50 to-blue-100 p-6 text-center shadow-sm">
           <div className="mb-2 text-3xl text-slate-900">{totalCount}</div>
           <p className="text-sm text-slate-600">Total Complaints</p>

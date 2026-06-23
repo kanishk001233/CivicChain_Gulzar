@@ -141,7 +141,7 @@ export function PerformancePage({ municipalId, initialData }: PerformancePagePro
       </div>
 
       {/* Performance Overview Cards */}
-      <div className="relative mb-8 grid grid-cols-1 gap-6 md:grid-cols-4">
+      <div className="mobile-stat-grid relative mb-8 grid grid-cols-1 gap-6 md:grid-cols-4">
         <Card className="border-blue-200 bg-gradient-to-br from-blue-50 to-blue-100 p-6 shadow-sm">
           <div className="flex items-center justify-between mb-2">
             <span className="text-slate-600">Total Complaints</span>

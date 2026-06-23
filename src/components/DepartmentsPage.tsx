@@ -331,7 +331,7 @@ export function DepartmentsPage({
         <p className="text-slate-600">Select a department to view and manage complaints by category</p>
       </div>
 
-      <div className="relative mb-8 grid grid-cols-1 gap-4 md:grid-cols-4">
+      <div className="mobile-stat-grid departments-stats-grid relative mb-8 grid grid-cols-1 gap-4 md:grid-cols-4">
         <Card className="border-blue-200 bg-gradient-to-br from-blue-50 to-blue-100 p-4 shadow-sm">
           <p className="text-xs text-slate-600">Total</p>
           <p className="text-2xl font-semibold text-slate-900">{overallStats.total}</p>
@@ -350,7 +350,7 @@ export function DepartmentsPage({
         </Card>
       </div>
 
-      <div className="relative grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <div className="departments-card-grid relative grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
         {categories.map((category) => {
           const stats = getCategoryStats(category.id);
           const resolutionRate = stats.total > 0 ? Math.round(((stats.resolved + stats.verified) / stats.total) * 100) : 0;
@@ -358,7 +358,7 @@ export function DepartmentsPage({
           return (
             <Card
               key={category.id}
-              className="cursor-pointer border-slate-200 bg-white p-6 shadow-sm transition-all hover:-translate-y-1 hover:shadow-md"
+              className="department-card cursor-pointer border-slate-200 bg-white p-6 shadow-sm transition-all hover:-translate-y-1 hover:shadow-md"
               onClick={() => setSelectedCategory(category.id)}
             >
               <div className="mb-6">
