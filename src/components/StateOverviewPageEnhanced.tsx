@@ -865,13 +865,14 @@ ${stateName} State Administration`;
                       className="group cursor-pointer rounded-2xl border border-red-100 bg-white p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-red-200 hover:shadow-md"
                       onClick={() => setSelectedEscalatedComplaint(complaint)}
                     >
-                      <div className="flex flex-col gap-5 md:flex-row md:items-start gap-3">
+                      <div className="flex flex-col gap-5 md:flex-row md:items-start">
                         {/* Image */}
                         {complaint.photo && (
-                          <div className="h-28 w-38 overflow-hidden rounded-xl border border-red-100 bg-red-50 shadow-sm md:mr-1">
+                          <div className="escalated-complaint-image overflow-hidden rounded-xl border border-red-100 bg-red-50 shadow-sm md:mr-1">
                             <img
                               src={complaint.photo}
                               alt={complaint.title}
+                              loading="lazy"
                               className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                             />
                           </div>
